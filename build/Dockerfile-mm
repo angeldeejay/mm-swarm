@@ -1,15 +1,16 @@
 # Override args
-FROM karsten13/magicmirror:develop_alpine
+FROM karsten13/magicmirror:fat
 
 WORKDIR /opt/magic_mirror
 USER root
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN set -e; \
-    apk add --no-cache \
+    apt-get update; \
+    apt-get install \
     ffmpeg \
-    mkcert \
-    bash > /dev/null 2>&1; \
-    npm install npm@latest -g > /dev/null 2>&1;
+    mkcert; \
+    npm install npm@latest -g;
 
 USER node
 COPY --chown=node:node entrypoint-mm.sh .
