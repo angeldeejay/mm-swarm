@@ -124,6 +124,7 @@ const template = yaml.dump(
     version: '3',
     services: {
       '${INSTANCE}_mm': {
+        image: 'mm-swarm/magicmirror',
         container_name: '${INSTANCE}_mm',
         build: {
           context: 'build',
@@ -136,7 +137,7 @@ const template = yaml.dump(
           './modules:/opt/magic_mirror/modules',
           './shared:/opt/magic_mirror/shared'
         ],
-        restart: 'unless-stopped',
+        restart: 'always',
       },
       '${INSTANCE}_mmpm': {
         container_name: '${INSTANCE}_mmpm',
@@ -157,7 +158,7 @@ const template = yaml.dump(
           './modules:/home/node/MagicMirror/modules',
           './.mmpm/${INSTANCE}:/home/node/.config/mmpm'
         ],
-        restart: 'unless-stopped'
+        restart: 'always'
       }
     }
   },
