@@ -35,7 +35,7 @@
   },
   "scripts": {
     "prestart": "npm stop; node index.js",
-    "start": "docker-compose up",
-    "stop": "docker-compose down --rmi all --remove-orphans -t 0"
+    "start": "docker-compose up -d",
+    "stop": "docker-compose down --rmi all --remove-orphans -t 0; docker prune container -f; docker image prune -f -a"
   }
 }
