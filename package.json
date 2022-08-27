@@ -38,7 +38,7 @@
     "poststart": "npm run clean",
     "prestop": "npm run prestart",
     "poststop": "npm run clean",
-    "clean": "docker container prune -f; docker image prune -f -a",
+    "clean": "docker container prune -f; docker image prune -f",
     "start": "docker-compose up -d --no-recreate",
     "stop": "docker-compose down --rmi local --remove-orphans -t 0"
   }
