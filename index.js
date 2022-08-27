@@ -5,6 +5,7 @@
 const yaml = require('js-yaml');
 const fs = require('node:fs');
 const deepmerge = require('deepmerge');
+const { networkInterfaces } = require('os');
 
 /**
  * Docker Compose File class.
@@ -119,6 +120,17 @@ class DockerComposeFile {
   }
 }
 
+const localIp = Object.entries(networkInterfaces())
+  .reduce((match, [name, net]) => {
+    if (match !== undefined) { return match; }
+    const isEthernet = name.indexOf('eth') === 0;
+    const __match = net.find((addr) => {
+      const familyV4Value = typeof addr.family === 'string' ? 'IPv4' : 4;
+      return addr.family === familyV4Value && !addr.internal && isEthernet;
+    })
+    return __match?.address;
+  }, undefined);
+
 const template = yaml.dump(
   {
     version: '3',
@@ -145,7 +157,7 @@ const template = yaml.dump(
           context: 'build',
           dockerfile: 'Dockerfile-mmpm',
           args: {
-            MM_PORT: '${MM_PORT}',
+            LOCAL_IP: '${LOCAL_IP}',
             MMPM_PORT: '${MMPM_PORT}',
             MMPM_WSSH_PORT: '${MMPM_WSSH_PORT}',
           },
@@ -169,6 +181,7 @@ const template = yaml.dump(
 );
 
 const replacements = {
+  LOCAL_IP: [],
   INSTANCE: [],
   MM_PORT: [],
   MMPM_PORT: [],
@@ -183,6 +196,7 @@ fs.readdirSync(__dirname + '/config', { withFileTypes: true })
     const mmpmPort = 7890 + (index * 4);
     const mmpmWsshPort = mmpmPort + 2;
     console.log('=> Found instance: ' + file.name);
+    replacements.LOCAL_IP.push(localIp);
     replacements.INSTANCE.push(file.name);
     replacements.MM_PORT.push(mmPort);
     replacements.MMPM_PORT.push(mmpmPort);

@@ -23,7 +23,7 @@ RUN set -ex; \
     wget -O /usr/local/bin/mkcert -q "${MKCERT_URL}"; \
     chmod +x /usr/local/bin/mkcert; \
     mkcert -h > /dev/null 2>&1 || (echo "mkcert not installed!"; exit 1); \
-    npm install npm@latest -g;
+    npm install npm@latest -g > /dev/null 2>&1
 
 USER node
 COPY --chown=node:node entrypoint-mm.sh .

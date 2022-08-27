@@ -15,7 +15,7 @@ yes | mmpm install --as-module
 sed -i -r 's|"MMPM_IS_DOCKER_IMAGE": (.*)|"MMPM_IS_DOCKER_IMAGE": true|g' /home/node/.config/mmpm/mmpm-env.json
 
 # sets default value if file didn't exist before
-[[ $FIX_MM_URI == 1 ]] && sed -i -r 's|"MMPM_MAGICMIRROR_URI": (.*)|"MMPM_MAGICMIRROR_URI": "http://localhost:8080",|g' /home/node/.config/mmpm/mmpm-env.json
+[[ $FIX_MM_URI == 1 ]] && sed -i -r "s|\"MMPM_MAGICMIRROR_URI\": (.*)|\"MMPM_MAGICMIRROR_URI\": \"http://$LOCAL_IP:8080\",|g" /home/node/.config/mmpm/mmpm-env.json
 
 echo "check if config.js contains mmpm module section ..."
 [[ "$(cat /home/node/MagicMirror/config/config.js | grep 'module: "mmpm"')" ]] || sed -i 's|modules: \[|modules: \[{ module: "mmpm" },|g' /home/node/MagicMirror/config/config.js
