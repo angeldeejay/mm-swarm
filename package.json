@@ -34,8 +34,8 @@
     "url": "https://github.com/angeldeejay/mm-swarm"
   },
   "scripts": {
-    "prestart": "npm stop; node index.js",
+    "prestart": "npm stop",
     "start": "docker-compose up -d",
-    "stop": "docker-compose down --rmi all --remove-orphans -t 0; docker container prune -f; docker image prune -f -a"
+    "stop": "node index.js && docker-compose down --rmi all --remove-orphans -t 0; docker container prune -f; docker image prune -f -a"
   }
 }
