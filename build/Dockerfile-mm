@@ -1,0 +1,19 @@
+# Override args
+FROM karsten13/magicmirror:develop_alpine
+
+WORKDIR /opt/magic_mirror
+USER root
+
+RUN set -e; \
+    apk add --no-cache \
+    ffmpeg \
+    mkcert \
+    bash > /dev/null 2>&1; \
+    npm install npm@latest -g > /dev/null 2>&1;
+
+USER node
+COPY --chown=node:node entrypoint-mm.sh .
+
+EXPOSE 8080
+
+ENTRYPOINT ["./entrypoint-mm.sh"]

@@ -1,0 +1,41 @@
+{
+  "name": "mm-swarm",
+  "description": "my dazzling project",
+  "version": "1.0.0",
+  "author": "Andres Vanegas <ukab72106@gmail.com> ()",
+  "bugs": {
+    "url": "https://github.com/angeldeejay/mm-swarm/issues",
+    "email": "ukab72106@gmail.com"
+  },
+  "contributors": [
+    "Andres Vanegas <ukab72106@gmail.com> ()"
+  ],
+  "dependencies": {
+    "deepmerge": "^4.2.2",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "latest",
+    "@commitlint/config-conventional": "latest",
+    "prettier": "latest"
+  },
+  "engines": {
+    "node": ">= 16"
+  },
+  "homepage": "https://github.com/angeldeejay/mm-swarm",
+  "keywords": [
+    "mm-swarm"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/angeldeejay/mm-swarm"
+  },
+  "scripts": {
+    "prestart": "npm stop; node index.js",
+    "start": "docker-compose up",
+    "stop": "docker-compose down --rmi all --remove-orphans -t 0"
+  }
+}
