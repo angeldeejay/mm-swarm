@@ -65,7 +65,7 @@ class DockerComposeFile {
   }
 
   get yaml() {
-    return yaml.dump(this.yamlObject, { sortKeys: true }).trim();
+    return yaml.dump(this.yamlObject, { sortKeys: false }).trim();
   }
 
   /**
@@ -120,59 +120,86 @@ class DockerComposeFile {
   }
 }
 
-const localIp = Object.entries(networkInterfaces())
-  .reduce((match, [name, net]) => {
-    if (match !== undefined) { return match; }
+console.log("► Looking for network interfaces");
+const ipToBind = Object.entries(networkInterfaces())
+  .reduce((acc, [name, net]) => {
     const isEthernet = name.indexOf('eth') === 0;
+    const isWireless = name.indexOf('wlan') === 0;
     const __match = net.find((addr) => {
       const familyV4Value = typeof addr.family === 'string' ? 'IPv4' : 4;
-      return addr.family === familyV4Value && !addr.internal && isEthernet;
+      return addr.family === familyV4Value && !addr.internal && (isEthernet || isWireless);
     })
-    return __match?.address;
-  }, undefined);
+    if (__match !== undefined) {
+      acc.push({ name, address: __match.address });
+    }
+    return acc;
+  }, [])
+  .sort((a, b) => {
+    if (a.name === b.name) return a.address.localeCompare(b.address);
+    else return a.name.substr(0, 3).localeCompare(a.name.substr(0, 3));
+  }).
+  shift();
 
-const template = yaml.dump(
+if ([null, undefined].includes(ipToBind)) {
+  console.error('  Could not find a valid network interface to bind');
+  console.error('  Only LAN/WiFi connections accepted');
+  process.exit(1);
+}
+console.log("► Binding to " + ipToBind.address + " (" + ipToBind.name + ")");
+
+const instanceTemplate = yaml.dump(
   {
     version: '3',
     services: {
       '${INSTANCE}_mm': {
-        image: 'mm-swarm/magicmirror',
+        image: 'andresvanegas/mm',
         container_name: '${INSTANCE}_mm',
-        build: {
-          context: 'build',
-          dockerfile: 'Dockerfile-mm',
+        environment: {
+          MM_PORT: '${MM_PORT}',
         },
-        ports: ['${MM_PORT}:8080'],
+        ports: ['${MM_PORT}:${MM_PORT}'],
         volumes: [
-          './config/${INSTANCE}:/opt/magic_mirror/config',
-          './css/${INSTANCE}:/opt/magic_mirror/css',
+          './instances/${INSTANCE}/config:/opt/magic_mirror/config',
+          './instances/${INSTANCE}/css:/opt/magic_mirror/css',
           './modules:/opt/magic_mirror/modules',
           './shared:/opt/magic_mirror/shared'
         ],
+        privileged: true,
         restart: 'always',
+        networks: ['mmpm-${INSTANCE}-network'],
       },
       '${INSTANCE}_mmpm': {
+        image: 'andresvanegas/mmpm',
         container_name: '${INSTANCE}_mmpm',
-        build: {
-          context: 'build',
-          dockerfile: 'Dockerfile-mmpm',
-          args: {
-            LOCAL_IP: '${LOCAL_IP}',
-            MMPM_PORT: '${MMPM_PORT}',
-            MMPM_WSSH_PORT: '${MMPM_WSSH_PORT}',
-          },
+        environment: {
+          MM_PORT: '${MM_PORT}',
+          MMPM_PORT: '${MMPM_PORT}',
+          MMPM_WSSH_PORT: '${MMPM_WSSH_PORT}',
+          LOCAL_IP: '${LOCAL_IP}',
         },
-        depends_on: ['${INSTANCE}_mm'],
         ports: ['${MMPM_PORT}:${MMPM_PORT}', '${MMPM_WSSH_PORT}:${MMPM_WSSH_PORT}'],
         volumes: [
-          './config/${INSTANCE}:/home/node/MagicMirror/config',
-          './css/${INSTANCE}:/home/node/MagicMirror/css',
+          './instances/${INSTANCE}/config:/home/node/MagicMirror/config',
+          './instances/${INSTANCE}/css:/home/node/MagicMirror/css',
           './modules:/home/node/MagicMirror/modules',
-          './.mmpm/${INSTANCE}:/home/node/.config/mmpm'
+          '${INSTANCE}-mmpm-config:/home/node/.config/mmpm',
         ],
-        restart: 'always'
+        privileged: true,
+        restart: 'always',
+        networks: ['mmpm-${INSTANCE}-network'],
+        depends_on: ['${INSTANCE}_mm'],
       }
-    }
+    },
+    // separate networks to avoid undesired effects on notifications system
+    networks: {
+      'mmpm-${INSTANCE}-network': {
+        driver: 'bridge',
+      },
+    },
+    //don't cache mmpm config
+    volumes: {
+      '${INSTANCE}-mmpm-config': null,
+    },
   },
   {
     noCompatMode: true,
@@ -188,15 +215,16 @@ const replacements = {
   MMPM_WSSH_PORT: []
 };
 
-fs.readdirSync(__dirname + '/config', { withFileTypes: true })
+console.log('► Looking for instances');
+fs.readdirSync(__dirname + '/instances', { withFileTypes: true })
   .filter((file) => file.isDirectory())
   // eslint-disable-next-line unicorn/no-array-for-each
   .forEach((file, index) => {
     const mmPort = 8080 + index;
     const mmpmPort = 7890 + (index * 4);
     const mmpmWsshPort = mmpmPort + 2;
-    console.log('=> Found instance: ' + file.name);
-    replacements.LOCAL_IP.push(localIp);
+    console.log('⦿ Found instance: ' + file.name);
+    replacements.LOCAL_IP.push(ipToBind.address);
     replacements.INSTANCE.push(file.name);
     replacements.MM_PORT.push(mmPort);
     replacements.MMPM_PORT.push(mmpmPort);
@@ -205,13 +233,13 @@ fs.readdirSync(__dirname + '/config', { withFileTypes: true })
     console.log('  - MMPM_PORT     : ' + mmpmPort);
     console.log('  - MMPM_WSSH_PORT: ' + mmpmWsshPort);
   });
-console.log('=> Processed ' + replacements.INSTANCE.length + ' instances');
+console.log('► Processed ' + replacements.INSTANCE.length + ' instances');
 
-console.log('=> Generating docker-compose.yml');
-const composeTemplate = new DockerComposeFile(template);
+console.log('► Generating docker-compose.yml');
+const composeTemplate = new DockerComposeFile(instanceTemplate);
 const composeFiles = composeTemplate.mapTemplate(
   ...Object.entries(replacements)
 );
 const mergedMap = new DockerComposeFile(...composeFiles);
 mergedMap.write(__dirname + '/docker-compose.yml');
-console.log('=> Done');
+console.log('► Done');

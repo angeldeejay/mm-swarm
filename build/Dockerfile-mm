@@ -1,9 +1,11 @@
 # Override args
 FROM karsten13/magicmirror:latest
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV MM_PORT 8080
+
 WORKDIR /opt/magic_mirror
 USER root
-ENV DEBIAN_FRONTEND=noninteractive
 
 RUN set -ex; \
     apt-get update -qq || exit 1; \
@@ -11,23 +13,13 @@ RUN set -ex; \
     curl -h > /dev/null 2>&1 || (echo "curl not installed!"; exit 1); \
     wget -h > /dev/null 2>&1 || (echo "wget not installed!"; exit 1); \
     ffmpeg -h > /dev/null 2>&1 || (echo "ffmpeg not installed!"; exit 1); \
-    ARCH= && \
-    dpkgArch="$(dpkg --print-architecture)" && \
-    case "${dpkgArch##*-}" in\
-    amd64) ARCH='amd64';;\
-    arm64) ARCH='arm64';;\
-    armhf) ARCH='arm';;\
-    *) echo "unsupported architecture"; exit 1 ;;\
-    esac; \
-    MKCERT_URL=$(curl -s https://api.github.com/repos/FiloSottile/mkcert/releases/latest | grep browser_download_url | grep "linux-$ARCH" | cut -d '"' -f 4); \
-    wget -O /usr/local/bin/mkcert -q "${MKCERT_URL}"; \
-    chmod +x /usr/local/bin/mkcert; \
-    mkcert -h > /dev/null 2>&1 || (echo "mkcert not installed!"; exit 1); \
-    npm install npm@latest -g > /dev/null 2>&1
+    npm install npm@latest -g > /dev/null 2>&1; \
+    apt-get clean > /dev/null 2>&1; \
+    apt-get clean autoclean > /dev/null 2>&1; \
+    apt-get autoremove --yes > /dev/null 2>&1; \
+    rm -rf /var/lib/{apt,dpkg,cache,log}/ > /dev/null 2>&1
 
 USER node
 COPY --chown=node:node entrypoint-mm.sh .
-
-EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint-mm.sh"]

@@ -30,9 +30,5 @@ modules/
 
 #    Instances    #
 ###################
-config/
-!config/.gitkeep
-css/
-!css/.gitkeep
-shared/
-!shared/.gitkeep
+instances/
+!instances/.gitkeep

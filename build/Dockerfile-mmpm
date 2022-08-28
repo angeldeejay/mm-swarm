@@ -1,24 +1,9 @@
 FROM karsten13/mmpm:latest
 
-ARG MMPM_PORT=7890
-ARG MMPM_WSSH_PORT=7892
-ARG LOCAL_IP=127.0.0.1
-ENV LOCAL_IP $LOCAL_IP
-
-USER root
-
-RUN set -e; \
-    for f in $(egrep -Rl '789(0|2)' /etc/nginx/sites-available/ /var/www/); do \
-    echo "Patching port [7890 -> $MMPM_PORT] within ${f}"; \
-    sed -i "s/7890/$MMPM_PORT/ig" "${f}"; \
-    echo "Patching port [7892 -> $MMPM_WSSH_PORT] within ${f}"; \
-    sed -i "s/7892/$MMPM_WSSH_PORT/ig" "${f}"; \
-    done; \
-    for f in $(egrep -Rl 'localhost' /var/www/); do \
-    echo "Patching local IP [localhost -> $LOCAL_IP] within ${f}"; \
-    sed -i "s/localhost/$LOCAL_IP/ig" "${f}"; \
-    done; \
-    c_rehash;
+ENV MM_PORT 8080
+ENV MMPM_PORT 7890
+ENV MMPM_WSSH_PORT 7892
+ENV LOCAL_IP 127.0.0.1
 
 USER node
 
@@ -26,7 +11,5 @@ WORKDIR /home/node
 COPY --chown=node:node entrypoint-mmpm.sh .
 
 ENV PATH=$PATH:/home/node/.local/bin
-
-EXPOSE $MMPM_PORT $MMPM_WSSH_PORT
 
 ENTRYPOINT ["/home/node/entrypoint-mmpm.sh"]
