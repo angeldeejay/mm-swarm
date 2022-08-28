@@ -135,7 +135,7 @@ const ipToBind = Object.entries(networkInterfaces())
     return acc;
   }, [])
   .sort((a, b) => {
-    if (a.name === b.name) return a.address.localeCompare(b.address);
+    if (a.name.substr(0, 3) === b.name.substr(0, 3)) return a.name.localeCompare(b.name);
     else return a.name.substr(0, 3).localeCompare(a.name.substr(0, 3));
   }).
   shift();
@@ -153,6 +153,10 @@ const instanceTemplate = yaml.dump(
     services: {
       '${INSTANCE}_mm': {
         image: 'andresvanegas/mm',
+        build: {
+          context: 'build',
+          dockerfile: 'Dockerfile-mm',
+        },
         container_name: '${INSTANCE}_mm',
         environment: {
           MM_PORT: '${MM_PORT}',
@@ -170,6 +174,10 @@ const instanceTemplate = yaml.dump(
       },
       '${INSTANCE}_mmpm': {
         image: 'andresvanegas/mmpm',
+        build: {
+          context: 'build',
+          dockerfile: 'Dockerfile-mmpm',
+        },
         container_name: '${INSTANCE}_mmpm',
         environment: {
           MM_PORT: '${MM_PORT}',
