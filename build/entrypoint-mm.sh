@@ -43,7 +43,31 @@ for module in $(ls -1 $SCRIPT_PATH/modules | egrep -v '(default|mmpm)'); do
   fi
 done
 
+if [[ ! -f "${SCRIPT_PATH}/ecosystem.config.js" ]]; then
+  read -d '' ecosystem_contents <<_EOF_
+module.exports = {
+  apps: [
+    {
+      name: 'MagicMirror',
+      cwd: '${SCRIPT_PATH}/',
+      script: 'npm',
+      args: ['run', 'server'],
+      watch: ['./config', './css'],
+      exec_mode: 'fork',
+      log_date_format: '',
+      combine_log: true,
+      env: {
+        "MM_PORT": '${MM_PORT}',
+      },
+    }
+  ]
+};
+_EOF_
+  echo $ecosystem_contents >"${SCRIPT_PATH}/ecosystem.config.js"
+fi
+
 (echo "Preparing instance..." &&
   npm install --prefix "${SCRIPT_PATH}/" >/dev/null 2>&1) &&
-  MM_PORT=$MM_PORT npm run server --prefix "${SCRIPT_PATH}/" ||
+  (pm2 start ecosystem.config.js &&
+    pm2 logs MagicMirror --raw --lines 0) ||
   (echo "Something went wrong!" && exit 1)

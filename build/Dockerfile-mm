@@ -14,6 +14,7 @@ RUN set -ex; \
     wget -h > /dev/null 2>&1 || (echo "wget not installed!"; exit 1); \
     ffmpeg -h > /dev/null 2>&1 || (echo "ffmpeg not installed!"; exit 1); \
     npm install npm@latest -g > /dev/null 2>&1; \
+    npm install pm2@latest -g > /dev/null 2>&1; \
     apt-get clean > /dev/null 2>&1; \
     apt-get clean autoclean > /dev/null 2>&1; \
     apt-get autoremove --yes > /dev/null 2>&1; \

@@ -1,7 +1,7 @@
 {
   "name": "mm-swarm",
   "description": "my dazzling project",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Andres Vanegas <ukab72106@gmail.com> ()",
   "bugs": {
     "url": "https://github.com/angeldeejay/mm-swarm/issues",
@@ -12,7 +12,8 @@
   ],
   "dependencies": {
     "deepmerge": "^4.2.2",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "nodemon": "^2.0.19"
   },
   "devDependencies": {
     "@commitlint/cli": "latest",

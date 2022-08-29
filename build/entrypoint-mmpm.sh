@@ -18,26 +18,26 @@ if [[ $FIX_MM_URI == 1 ]]; then
   # sets default value if file didn't exist before
   sed -i -r "s|\"MMPM_MAGICMIRROR_URI\": (.*)|\"MMPM_MAGICMIRROR_URI\": \"http://$LOCAL_IP:$MM_PORT\",|g" /home/node/.config/mmpm/mmpm-env.json
 
-  for f in $(sudo egrep -Rl '(8080|789(0|2))' /etc/nginx/sites-available/ /home/node/.config/mmpm/); do
+  for f in $(sudo egrep -Rl '(8080|7890|7892)' /etc/nginx/sites-available/ /home/node/.config/mmpm/); do
     echo "patching port in ${f}: 8080 → $MM_PORT"
-    sudo sed -i "s/8080/$MM_PORT/ig" "${f}"
+    sudo sed -i -E "s|8080|$MM_PORT|ig" "${f}"
     echo "patching port in ${f}: 7890 → $MMPM_PORT"
-    sudo sed -i "s/7890/$MMPM_PORT/ig" "${f}"
+    sudo sed -i -E "s|7890|$MMPM_PORT|ig" "${f}"
     echo "patching port in ${f}: 7892 → $MMPM_WSSH_PORT"
-    sudo sed -i "s/7892/$MMPM_WSSH_PORT/ig" "${f}"
+    sudo sed -i -E "s|7892|$MMPM_WSSH_PORT|ig" "${f}"
   done
 
   for f in $(sudo ls -1 /var/www/mmpm/static/main-*); do
     echo "patching port in ${f}: 8080 → $MM_PORT"
-    sudo sed -i "s/8080/$MM_PORT/ig" "${f}"
+    sudo sed -i -E "s|8080|$MM_PORT|ig" "${f}"
     echo "patching port in ${f}: 7890 → $MMPM_PORT"
-    sudo sed -i "s/7890/$MMPM_PORT/ig" "${f}"
+    sudo sed -i -E "s|7890|$MMPM_PORT|ig" "${f}"
     echo "patching port in ${f}: 7892 → $MMPM_WSSH_PORT"
-    sudo sed -i "s/7892/$MMPM_WSSH_PORT/ig" "${f}"
+    sudo sed -i -E "s|7892|$MMPM_WSSH_PORT|ig" "${f}"
     echo "patching target address in ${f}: localhost → $LOCAL_IP"
-    sudo sed -i "s/localhost/$LOCAL_IP/ig" "${f}"
+    sudo sed -i -E "s|localhost|$LOCAL_IP|ig" "${f}"
     echo "patching target address in ${f}: 127.0.0.1 → $LOCAL_IP"
-    sudo sed -i "s/127.0.0.1/$LOCAL_IP/ig" "${f}"
+    sudo sed -i -E "s|127.0.0.1|$LOCAL_IP|ig" "${f}"
   done
 fi
 
