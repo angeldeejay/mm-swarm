@@ -39,7 +39,7 @@ const instanceTemplate = yaml.dump(
     version: '3',
     services: {
       '${INSTANCE}_mm': {
-        image: 'andresvanegas/mm',
+        image: 'mm-swarm/mm',
         build: {
           context: 'build',
           dockerfile: 'Dockerfile-mm',
@@ -60,7 +60,7 @@ const instanceTemplate = yaml.dump(
         networks: ['mmpm-${INSTANCE}-network'],
       },
       '${INSTANCE}_mmpm': {
-        image: 'andresvanegas/mmpm',
+        image: 'mm-swarm/mmpm',
         build: {
           context: 'build',
           dockerfile: 'Dockerfile-mmpm',
