@@ -59,6 +59,7 @@ const instanceTemplate = yaml.dump(
         restart: 'always',
         networks: ['mmpm-${INSTANCE}-network'],
       },
+      // MagicMirror Process Manager
       '${INSTANCE}_mmpm': {
         image: 'mm-swarm/mmpm',
         build: {

@@ -2,18 +2,22 @@
   "name": "mm-swarm",
   "description": "my dazzling project",
   "version": "1.1.0",
-  "author": "Andres Vanegas <ukab72106@gmail.com> ()",
+  "author": "Andres Vanegas <ukab72106@gmail.com>",
   "bugs": {
     "url": "https://github.com/angeldeejay/mm-swarm/issues",
     "email": "ukab72106@gmail.com"
   },
   "contributors": [
-    "Andres Vanegas <ukab72106@gmail.com> ()"
+    "Andres Vanegas <ukab72106@gmail.com>"
   ],
   "dependencies": {
+    "a": "^2.1.2",
+    "b": "^2.0.1",
     "deepmerge": "^4.2.2",
     "js-yaml": "^4.1.0",
-    "nodemon": "^2.0.19"
+    "nodemon": "^2.0.19",
+    "npm": "^8.18.0",
+    "pm2": "^5.2.0"
   },
   "devDependencies": {
     "@commitlint/cli": "latest",
@@ -39,7 +43,7 @@
     "postinstall": "node index.js",
     "prestart": "npm run postinstall",
     "prestop": "npm run postinstall",
-    "clean": "docker container prune -f; docker volume prune -f; docker image prune -f",
+    "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image prune -f",
     "start": "docker-compose up -d --quiet-pull --renew-anon-volumes --remove-orphans --no-log-prefix",
     "stop": "docker-compose down --rmi all -v --remove-orphans -t 0"
   }
