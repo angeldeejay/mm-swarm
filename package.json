@@ -37,10 +37,8 @@
   "scripts": {
     "logs": "docker-compose logs -f --no-color",
     "postinstall": "node index.js",
-    "prestart": "npm run prestop",
-    "poststart": "npm run clean",
+    "prestart": "npm run postinstall",
     "prestop": "npm run postinstall",
-    "poststop": "npm run clean",
     "clean": "docker container prune -f; docker volume prune -f; docker image prune -f",
     "start": "docker-compose up -d --quiet-pull --renew-anon-volumes --remove-orphans --no-log-prefix",
     "stop": "docker-compose down --rmi all -v --remove-orphans -t 0"
