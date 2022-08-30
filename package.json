@@ -39,12 +39,12 @@
     "url": "https://github.com/angeldeejay/mm-swarm"
   },
   "scripts": {
-    "logs": "docker-compose logs -f --no-color",
+    "logs": "docker-compose logs --tail 0 -f --no-color",
     "postinstall": "node index.js",
     "prestart": "npm run postinstall",
     "prestop": "npm run postinstall",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image prune -f",
-    "start": "docker-compose up -d --quiet-pull --renew-anon-volumes --remove-orphans --no-log-prefix",
+    "start": "docker-compose up -d --quiet-pull --no-recreate --renew-anon-volumes --remove-orphans --no-log-prefix -t 0",
     "stop": "docker-compose down --rmi all -v --remove-orphans -t 0"
   }
 }
