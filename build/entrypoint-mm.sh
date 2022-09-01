@@ -79,6 +79,10 @@ else
   done
 fi
 
+if [[ -d "${SCRIPT_PATH}/modules/MMM-RefreshClientOnly" ]]; then
+  [[ "$(cat "${SCRIPT_PATH}/config/config.js" | grep 'module: "MMM-RefreshClientOnly"')" ]] || sed -i 's|modules: \[|modules: \[{ module: "MMM-RefreshClientOnly" },|g' "$SCRIPT_PATH/config/config.js"
+fi
+
 if grep -q "MMM-rtsp-simple-server" "${SCRIPT_PATH}/config/config.js"; then
   CAROOT="${SCRIPT_PATH}/modules/MMM-rtsp-simple-server/bin" mkcert -install
 fi
