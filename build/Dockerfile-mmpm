@@ -8,7 +8,7 @@ ENV LOCAL_IP 127.0.0.1
 USER root
 
 RUN set -ex; \
-  npm install npm@latest parse-git-config@latest
+  npm install npm@latest parse-git-config@latest > /dev/null 2>&1
 
 USER node
 
