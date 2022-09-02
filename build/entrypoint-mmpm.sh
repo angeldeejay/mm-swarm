@@ -12,6 +12,7 @@ popd >/dev/null
 
 echo "copy config files to host ..."
 
+node /home/node/externalUpdater.js
 mkdir -p /home/node/.config/mmpm/
 sudo cp -rvn /home/node/mmpm/* /home/node/.config/mmpm/
 sudo chown -R node:node /home/node/.config/mmpm/

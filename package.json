@@ -17,6 +17,7 @@
     "js-yaml": "^4.1.0",
     "nodemon": "^2.0.19",
     "npm": "^8.18.0",
+    "parse-git-config": "^3.0.0",
     "pm2": "^5.2.0"
   },
   "devDependencies": {
