@@ -21,5 +21,7 @@ RUN set -ex; \
 
 USER node
 COPY --chown=node:node entrypoint-mm.sh .
+RUN set -ex; \
+    npm install > /dev/null 2>&1 || exit 1
 
 ENTRYPOINT ["./entrypoint-mm.sh"]

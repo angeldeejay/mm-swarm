@@ -65,7 +65,7 @@ fi
 
 if [[ "$MM_PORT" == "8080" ]]; then
   for module in $(ls -1 $SCRIPT_PATH/modules | egrep -v '(default|mmpm)'); do
-    if [[ -f "${SCRIPT_PATH}/modules/${module}/package.json" ]]; then
+    if [[ -f "${SCRIPT_PATH}/modules/${module}/package.json" && ! -d "${SCRIPT_PATH}/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
       npm install --prefix "${SCRIPT_PATH}/modules/${module}/" >/dev/null 2>&1
     fi
@@ -87,8 +87,6 @@ if grep -q "MMM-rtsp-simple-server" "${SCRIPT_PATH}/config/config.js"; then
   CAROOT="${SCRIPT_PATH}/modules/MMM-rtsp-simple-server/bin" mkcert -install
 fi
 
-(echo "preparing instance..." &&
-  npm install --prefix "$SCRIPT_PATH/" >/dev/null 2>&1) &&
-  (pm2 start ecosystem.config.js &&
-    pm2 logs MagicMirror --raw --lines 0) ||
+(pm2 start ecosystem.config.js &&
+  pm2 logs MagicMirror --raw --lines 0) ||
   (echo "Something went wrong!" && exit 1)
