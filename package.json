@@ -44,7 +44,7 @@
     "postinstall": "node index.js",
     "prestart": "npm run postinstall",
     "prestop": "npm run postinstall",
-    "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image rm -f mm-swarm/mm mm-swarm/mmpm; docker image prune -f",
+    "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image rm -f mm-swarm/mm mm-swarm/mmpm; docker image prune -f; docker system prune -a --force",
     "start": "docker-compose up -d --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
     "stop": "docker-compose down --rmi local -v --remove-orphans -t 0"
   }
