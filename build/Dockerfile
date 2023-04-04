@@ -69,6 +69,7 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   # User env
   && usermod -aG sudo pn \
   && usermod -aG www-data pn \
+  && mkdir -p /etc/sudoers.d \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
   # Cleaning
