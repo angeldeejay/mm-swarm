@@ -18,7 +18,8 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   esac \
   && set -ex \
   # NodeJS
-  && apt-get update && apt-get install -y ca-certificates curl wget gnupg dirmngr xz-utils libatomic1 --no-install-recommends \
+  && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
+  ca-certificates curl wget gnupg dirmngr xz-utils libatomic1 \
   && rm -rf /var/lib/apt/lists/* \
   && for key in \
   4ED778F539E3634C779C87C6D7062848A1AB005C \
@@ -49,7 +50,6 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   | cut -d: -f1 \
   | sort -u \
   | xargs -r apt-mark manual \
-  && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
   # smoke tests
   && node --version \
@@ -57,6 +57,7 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
 
 RUN set -ex \
   # MagicMirror
+  && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
   curl nano sudo gettext-base git \
   openssl ca-certificates tini gnupg axel \
   libnss3-dev libxss1 libxtst6 libasound2 \
@@ -75,8 +76,8 @@ RUN set -ex \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
   # Cleaning
-  && apt-get purge -y -qq --quiet --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-  && apt-get autoclean -y -qq --quiet \
+  && apt-get purge -qqy --quiet --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+  && apt-get autoclean -qqy --quiet \
   && rm -frR /var/{apt,dpkg,cache,log} \
   && rm -frR /var/lib/apt/lists/* \
   && for i in $(seq 1 8); do (rm -frR "/usr/share/man/man${i}" || true); done \
