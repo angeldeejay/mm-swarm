@@ -53,7 +53,9 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
   # smoke tests
   && node --version \
-  && npm --version \
+  && npm --version
+
+RUN set -ex \
   # MagicMirror
   curl nano sudo gettext-base git \
   openssl ca-certificates tini gnupg axel \
