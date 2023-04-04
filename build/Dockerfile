@@ -20,7 +20,6 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   # NodeJS
   && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
   ca-certificates curl wget gnupg dirmngr xz-utils libatomic1 \
-  && rm -rf /var/lib/apt/lists/* \
   && for key in \
   4ED778F539E3634C779C87C6D7062848A1AB005C \
   141F07595B7B3FFE74309A937405533BE57C7D57 \
