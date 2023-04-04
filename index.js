@@ -39,16 +39,16 @@ if ([null, undefined].includes(ipToBind)) {
 }
 console.log('► Binding to ' + ipToBind.address + ' (' + ipToBind.name + ')');
 
+const globalTemplate = yaml.dump({
+  version: '3'
+});
+
 const instanceTemplate = yaml.dump(
   {
     version: '3',
     services: {
       '${INSTANCE}_mm': {
         image: 'andresvanegas/mm-swarm',
-        build: {
-          context: 'build',
-          dockerfile: 'Dockerfile'
-        },
         container_name: '${INSTANCE}_mm',
         environment: [
           'INSTANCE=${INSTANCE}',
@@ -111,10 +111,15 @@ fs.readdirSync(__dirname + '/instances', { withFileTypes: true })
 console.log('► Processed ' + replacements.INSTANCE.length + ' instances');
 
 console.log('► Generating docker-compose.yml');
-const composeTemplate = new DockerComposeFile(instanceTemplate);
+const composeTemplate = new DockerComposeFile(globalTemplate);
 const composeFiles = composeTemplate.mapTemplate(
   ...Object.entries(replacements)
 );
-const mergedMap = new DockerComposeFile(...composeFiles);
+let mergedMap;
+if (composeFiles.length > 0) {
+  mergedMap = new DockerComposeFile(...composeFiles);
+} else {
+  mergedMap = new DockerComposeFile(...[globalTemplate]);
+}
 mergedMap.write(__dirname + '/docker-compose.yml');
 console.log('► Done');
