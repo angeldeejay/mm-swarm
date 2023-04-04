@@ -57,7 +57,7 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
 
 RUN set -ex \
   # MagicMirror
-  && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
+  && apt-get install -qqy --quiet --no-install-recommends \
   curl nano sudo gettext-base git \
   openssl ca-certificates tini gnupg axel \
   libnss3-dev libxss1 libxtst6 libasound2 \
