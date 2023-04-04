@@ -44,7 +44,7 @@ const instanceTemplate = yaml.dump(
     version: '3',
     services: {
       '${INSTANCE}_mm': {
-        image: 'mm-swarm/mm',
+        image: 'andresvanegas/mm-swarm',
         build: {
           context: 'build',
           dockerfile: 'Dockerfile'
