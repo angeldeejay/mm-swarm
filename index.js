@@ -94,10 +94,12 @@ const replacements = {
 };
 
 console.log('► Looking for instances');
+let instances = 0;
 fs.readdirSync(__dirname + '/instances', { withFileTypes: true })
   .filter((file) => file.isDirectory())
   // eslint-disable-next-line unicorn/no-array-for-each
   .forEach((file, index) => {
+    instances++;
     const mmPort = 8080 + index;
     const mmpmPort = 7890 + index * 4;
     console.log('⦿ Found instance: ' + file.name);
@@ -108,15 +110,15 @@ fs.readdirSync(__dirname + '/instances', { withFileTypes: true })
     console.log('  - MM_PORT       : ' + mmPort);
     console.log('  - MMPM_PORT     : ' + mmpmPort);
   });
-console.log('► Processed ' + replacements.INSTANCE.length + ' instances');
+console.log('► Processed ' + instances + ' instances');
 
 console.log('► Generating docker-compose.yml');
-const composeTemplate = new DockerComposeFile(globalTemplate);
-const composeFiles = composeTemplate.mapTemplate(
-  ...Object.entries(replacements)
-);
 let mergedMap;
-if (composeFiles.length > 0) {
+if (instances > 0) {
+  const composeTemplate = new DockerComposeFile(instanceTemplate);
+  const composeFiles = composeTemplate.mapTemplate(
+    ...Object.entries(replacements)
+  );
   mergedMap = new DockerComposeFile(...composeFiles);
 } else {
   mergedMap = new DockerComposeFile(...[globalTemplate]);

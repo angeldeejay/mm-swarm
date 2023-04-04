@@ -3,6 +3,7 @@ FROM --platform=$BUILDPLATFORM python:3.9.16-slim-bullseye
 ENV NODE_VERSION=16.20.0
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=$PATH:/home/pn/.local/bin
+ENV MKCERT_URL=https://api.github.com/repos/FiloSottile/mkcert/releases/latest
 
 RUN groupadd --gid 1000 pn && useradd --uid 1000 --gid pn --shell /bin/bash --create-home pn
 
@@ -17,9 +18,8 @@ RUN ARCH= \
   i386) ARCH='x86';; \
   *) echo "unsupported architecture"; exit 1 ;; \
   esac \
-  && echo "NODE ARCH: ${TARGETARCH}" \
   && set -ex \
-  # NodeJS
+  # nodejs
   && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
   ca-certificates curl wget gnupg dirmngr xz-utils libatomic1 \
   && for key in \
@@ -34,8 +34,9 @@ RUN ARCH= \
   C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C \
   108F52B48DB57BB0CC439B2997B01419BD92F80A \
   ; do \
-  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" || \
-  gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key" ; \
+  echo "Installing key $key" \
+  && (gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" || \
+  gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key") > /dev/null 2>&1; \
   done \
   && curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.xz" \
   && curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
@@ -44,10 +45,9 @@ RUN ARCH= \
   && tar -xJf "node-v$NODE_VERSION-linux-$ARCH.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
   && rm "node-v$NODE_VERSION-linux-$ARCH.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
-  # # smoke tests
   && node --version \
   && npm --version \
-  # MagicMirror
+  # magicmirror
   && apt-get install -qqy --quiet --no-install-recommends \
   curl nano sudo gettext-base git \
   openssl ca-certificates tini gnupg axel \
@@ -56,17 +56,29 @@ RUN ARCH= \
   fonts-arphic-uming procps arp-scan \
   # MMPM
   libffi-dev nginx-full \
-  # Other utilities
+  # other utilities
   ffmpeg iputils-ping \
-  # Update global NodeJS deps
+  # update global NodeJS deps
   && npm install -g npm@latest pm2@latest prettier \
-  # User env
+  # user env
   && usermod -aG sudo pn \
   && usermod -aG www-data pn \
   && mkdir -p /etc/sudoers.d \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
-  # Cleaning
+  # mkcert
+  && MKCERT_ARCH= \
+  && case "${TARGETARCH}" in \
+  amd64) MKCERT_ARCH='linux-amd64' ;; \
+  arm64) MKCERT_ARCH='linux-arm64' ;; \
+  armhf) MKCERT_ARCH='linux-arm' ;; \
+  *) echo "unsupported architecture"; exit 1 ;; \
+  esac \
+  && MKCERT_URL=$(curl -s "$MKCERT_URL" | grep browser_download_url | grep "$MKCERT_ARCH" | cut -d '"' -f 4) \
+  && sudo axel -qk4n 10 "${MKCERT_URL}" -o /usr/local/bin/mkcert \
+  && sudo chmod a+x /usr/local/bin/mkcert \
+  && mkcert --version \
+  # cleaning
   && apt-get purge -qqy --quiet --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && apt-get autoclean -qqy --quiet \
   && rm -frR /var/{apt,dpkg,cache,log} \
@@ -78,8 +90,10 @@ RUN ARCH= \
 
 USER pn
 WORKDIR /home/pn
+COPY --chown=pn:pn package.json .
 
 RUN set -ex \
+  && npm install --prefix /home/pn \
   && mkdir -p /home/pn/.default /home/pn/.config/mmpm \
   && git clone -b 3.0 --single-branch https://github.com/Bee-Mar/mmpm.git /home/pn/mmpm-src \
   && cd /home/pn/mmpm-src \
@@ -102,10 +116,14 @@ RUN set -ex \
   && sudo mkdir -p /var/www/mmpm/templates \
   && sudo cp -fr build/static /var/www/mmpm \
   && sudo cp -fr build/static/index.html /var/www/mmpm/templates/ \
-  # Cleaning
+  # defaults
   && cd /home/pn \
   && sudo rm -fr /home/pn/mmpm-src \
   && (yes | mmpm install --magicmirror) \
+  && (yes | mmpm install --as-module) \
+  && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
+  /home/pn/MagicMirror/modules/MMM-RefreshClientOnly \
+  && cp -fr /home/pn/MagicMirror/modules /home/pn/.default/ \
   && cp -frv /home/pn/MagicMirror/config /home/pn/.default/ \
   && cp -frv /home/pn/MagicMirror/css /home/pn/.default/ \
   && mkdir -p /home/pn/MagicMirror/shared \
@@ -123,7 +141,7 @@ ENV MM_PORT=8080
 ENV MMPM_PORT=7890
 ENV LOCAL_IP=127.0.0.1
 ENV INSTANCE=dummy
-ENV PM2_HOME='.pm2' 
+ENV PM2_HOME='.pm2'
 
 VOLUME /home/pn/.config/mmpm
 VOLUME /home/pn/MagicMirror/config
@@ -133,7 +151,6 @@ VOLUME /home/pn/MagicMirror/shared
 
 COPY --chown=pn:pn entrypoint.sh .
 COPY --chown=pn:pn externalUpdater.js .
-COPY --chown=pn:pn package.json .
 COPY --chown=pn:pn prepare.py .
 COPY --chown=pn:pn start_process.sh .
 
