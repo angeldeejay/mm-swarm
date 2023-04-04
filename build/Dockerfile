@@ -1,4 +1,4 @@
-FROM python:3.9.16-slim-bullseye
+FROM --platform=$BUILDPLATFORM python:3.9.16-slim-bullseye
 
 ENV NODE_VERSION=16.20.0
 ENV DEBIAN_FRONTEND=noninteractive
@@ -6,8 +6,9 @@ ENV PATH=$PATH:/home/pn/.local/bin
 
 RUN groupadd --gid 1000 pn && useradd --uid 1000 --gid pn --shell /bin/bash --create-home pn
 
-RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
-  && case "${dpkgArch##*-}" in \
+ARG TARGETARCH
+RUN ARCH= \
+  && case "${TARGETARCH}" in \
   amd64) ARCH='x64';; \
   ppc64el) ARCH='ppc64le';; \
   s390x) ARCH='s390x';; \
@@ -16,6 +17,7 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   i386) ARCH='x86';; \
   *) echo "unsupported architecture"; exit 1 ;; \
   esac \
+  && echo "NODE ARCH: ${TARGETARCH}" \
   && set -ex \
   # NodeJS
   && apt-get update -qq && apt-get install -qqy --quiet --no-install-recommends \
@@ -42,11 +44,9 @@ RUN ARCH= && dpkgArch="$(dpkg --print-architecture)" \
   && tar -xJf "node-v$NODE_VERSION-linux-$ARCH.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
   && rm "node-v$NODE_VERSION-linux-$ARCH.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
-  # smoke tests
+  # # smoke tests
   && node --version \
-  && npm --version
-
-RUN set -ex \
+  && npm --version \
   # MagicMirror
   && apt-get install -qqy --quiet --no-install-recommends \
   curl nano sudo gettext-base git \
@@ -104,9 +104,7 @@ RUN set -ex \
   && sudo cp -fr build/static/index.html /var/www/mmpm/templates/ \
   # Cleaning
   && cd /home/pn \
-  && sudo rm -fr /home/pn/mmpm-src
-
-RUN set -ex \
+  && sudo rm -fr /home/pn/mmpm-src \
   && (yes | mmpm install --magicmirror) \
   && cp -frv /home/pn/MagicMirror/config /home/pn/.default/ \
   && cp -frv /home/pn/MagicMirror/css /home/pn/.default/ \
