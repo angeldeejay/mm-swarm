@@ -30,7 +30,7 @@ echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 
 echo "Copying default modules"
-cp -nr $SCRIPT_PATH/.default/modules/* $MM_HOME/modules/
+cp -fr $SCRIPT_PATH/.default/modules/* $MM_HOME/modules/
 
 echo "Copying default config"
 cp -nr $SCRIPT_PATH/.default/config/* $MM_HOME/config/
