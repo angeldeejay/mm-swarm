@@ -47,49 +47,31 @@ const instanceTemplate = yaml.dump(
         image: 'mm-swarm/mm',
         build: {
           context: 'build',
-          dockerfile: 'Dockerfile-mm'
+          dockerfile: 'Dockerfile'
         },
         container_name: '${INSTANCE}_mm',
-        environment: {
-          MM_PORT: '${MM_PORT}'
-        },
-        ports: ['${MM_PORT}:${MM_PORT}'],
+        environment: [
+          'INSTANCE=${INSTANCE}',
+          'MM_PORT=${MM_PORT}',
+          'MMPM_PORT=${MMPM_PORT}',
+          'LOCAL_IP=${LOCAL_IP}'
+        ],
+        user: '1000:1000',
+        ports: [
+          '0.0.0.0:${MM_PORT}:${MM_PORT}',
+          '0.0.0.0:${MMPM_PORT}:${MMPM_PORT}'
+        ],
         volumes: [
-          './instances/${INSTANCE}/config:/opt/magic_mirror/config',
-          './instances/${INSTANCE}/css:/opt/magic_mirror/css',
-          './modules:/opt/magic_mirror/modules',
-          './shared:/opt/magic_mirror/shared'
+          './.cache/${INSTANCE}/mmpm:/home/pn/.config/mmpm',
+          './instances/${INSTANCE}/config:/home/pn/MagicMirror/config',
+          './instances/${INSTANCE}/css:/home/pn/MagicMirror/css',
+          './modules:/home/pn/MagicMirror/modules',
+          './shared:/home/pn/MagicMirror/shared'
         ],
         privileged: true,
         restart: 'always',
         networks: ['mmpm-${INSTANCE}-network']
       }
-      // MagicMirror Process Manager
-      // '${INSTANCE}_mmpm': {
-      //   image: 'mm-swarm/mmpm',
-      //   build: {
-      //     context: 'build',
-      //     dockerfile: 'Dockerfile-mmpm',
-      //   },
-      //   container_name: '${INSTANCE}_mmpm',
-      //   environment: {
-      //     MM_PORT: '${MM_PORT}',
-      //     MMPM_PORT: '${MMPM_PORT}',
-      //     MMPM_WSSH_PORT: '${MMPM_WSSH_PORT}',
-      //     LOCAL_IP: '${LOCAL_IP}',
-      //   },
-      //   ports: ['${MMPM_PORT}:${MMPM_PORT}', '${MMPM_WSSH_PORT}:${MMPM_WSSH_PORT}'],
-      //   volumes: [
-      //     './instances/${INSTANCE}/config:/home/node/MagicMirror/config',
-      //     './instances/${INSTANCE}/css:/home/node/MagicMirror/css',
-      //     './modules:/home/node/MagicMirror/modules',
-      //     './.cache/${INSTANCE}/mmpm:/home/node/.config/mmpm',
-      //   ],
-      //   privileged: true,
-      //   restart: 'always',
-      //   networks: ['mmpm-${INSTANCE}-network'],
-      //   depends_on: ['${INSTANCE}_mm'],
-      // }
     },
     // separate networks to avoid undesired effects on notifications system
     networks: {
@@ -107,9 +89,8 @@ const instanceTemplate = yaml.dump(
 const replacements = {
   LOCAL_IP: [],
   INSTANCE: [],
-  MM_PORT: []
-  // MMPM_PORT: [],
-  // MMPM_WSSH_PORT: []
+  MM_PORT: [],
+  MMPM_PORT: []
 };
 
 console.log('► Looking for instances');
@@ -118,17 +99,14 @@ fs.readdirSync(__dirname + '/instances', { withFileTypes: true })
   // eslint-disable-next-line unicorn/no-array-for-each
   .forEach((file, index) => {
     const mmPort = 8080 + index;
-    // const mmpmPort = 7890 + index * 4;
-    // const mmpmWsshPort = mmpmPort + 2;
+    const mmpmPort = 7890 + index * 4;
     console.log('⦿ Found instance: ' + file.name);
     replacements.LOCAL_IP.push(ipToBind.address);
     replacements.INSTANCE.push(file.name);
     replacements.MM_PORT.push(mmPort);
-    // replacements.MMPM_PORT.push(mmpmPort);
-    // replacements.MMPM_WSSH_PORT.push(mmpmWsshPort);
+    replacements.MMPM_PORT.push(mmpmPort);
     console.log('  - MM_PORT       : ' + mmPort);
-    // console.log('  - MMPM_PORT     : ' + mmpmPort);
-    // console.log('  - MMPM_WSSH_PORT: ' + mmpmWsshPort);
+    console.log('  - MMPM_PORT     : ' + mmpmPort);
   });
 console.log('► Processed ' + replacements.INSTANCE.length + ' instances');
 

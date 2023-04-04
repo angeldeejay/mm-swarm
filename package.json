@@ -1,7 +1,7 @@
 {
   "name": "mm-swarm",
   "description": "my dazzling project",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "author": "Andres Vanegas <ukab72106@gmail.com>",
   "bugs": {
     "url": "https://github.com/angeldeejay/mm-swarm/issues",
@@ -11,14 +11,10 @@
     "Andres Vanegas <ukab72106@gmail.com>"
   ],
   "dependencies": {
-    "a": "^2.1.2",
-    "b": "^2.0.1",
     "deepmerge": "^4.2.2",
     "js-yaml": "^4.1.0",
-    "nodemon": "^2.0.19",
     "npm": "^8.18.0",
-    "parse-git-config": "^3.0.0",
-    "pm2": "^5.2.0"
+    "parse-git-config": "^3.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "latest",
@@ -44,8 +40,9 @@
     "postinstall": "node index.js",
     "prestart": "npm run postinstall",
     "prestop": "npm run postinstall",
-    "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image rm -f mm-swarm/mm mm-swarm/mmpm; docker image prune -f; docker system prune -a --force",
-    "start": "docker-compose up -d --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
+    "clean": "docker container prune -f; docker network prune -f; docker volume prune -f; docker image rm -f mm-swarm/mm",
+    "start": "BUILDKIT_PROGRESS=plain docker-compose up -d --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
+    "foreground": "BUILDKIT_PROGRESS=plain docker-compose up --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
     "stop": "docker-compose down --rmi local -v --remove-orphans -t 0"
   }
 }
