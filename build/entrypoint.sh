@@ -30,7 +30,10 @@ echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 
 echo "Copying default modules"
-cp -fr $SCRIPT_PATH/.default/modules/* $MM_HOME/modules/
+for module in $(echo "mmpm default MMM-RefreshClientOnly"); do
+  sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
+  cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
+done
 
 echo "Copying default config"
 cp -nr $SCRIPT_PATH/.default/config/* $MM_HOME/config/
