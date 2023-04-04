@@ -262,10 +262,10 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     actual_config = re.sub(pattern, "", actual_config, 0)
     actual_config = {**loads(actual_config), **MM_CONFIG}
     modules = actual_config.get("modules", []) + MODULES
-    actual_config["modules"] = sorted([
+    actual_config["modules"] = [
         loads(m)
         for m in list(set([dumps(mo) for mo in modules]))
-    ], key=cmp_to_key(sortModulesByPriority))
+    ]
     pattern = re.compile(
         "['\"](\w[^\"]+)['\"]:", flags=re.I | re.M | re.DOTALL)
     new_config = re.sub(pattern, '\\1:', dumps(
