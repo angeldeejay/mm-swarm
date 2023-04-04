@@ -45,9 +45,9 @@
     "clean_all": "docker image rm -f andresvanegas/mm-swarm",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
     "prebuild_arm": "npm run clean",
-    "build_arm": "cd build; docker buildx build --platform=linux/arm64 -f ./Dockerfile -t andresvanegas/mm-swarm:latest --compress --pull --load --progress plain .",
+    "build_arm": "cd build; docker buildx build --platform=linux/arm64 -f ./Dockerfile -t andresvanegas/mm-swarm:latest --compress --pull --push --progress plain .",
     "prebuild_x64": "npm run clean",
-    "build_x64": "cd build; docker buildx build --platform=linux/amd64 -f ./Dockerfile -t andresvanegas/mm-swarm:latest --compress --pull --load --progress plain .",
+    "build_x64": "cd build; docker buildx build --platform=linux/amd64 -f ./Dockerfile -t andresvanegas/mm-swarm:latest --compress --pull --push --progress plain .",
     "start": "BUILDKIT_PROGRESS=plain docker-compose up -d --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
     "foreground": "BUILDKIT_PROGRESS=plain docker-compose up --quiet-pull --no-recreate --remove-orphans --no-log-prefix -t 0",
     "stop": "docker-compose down --rmi local -v --remove-orphans -t 0"
