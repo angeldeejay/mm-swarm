@@ -3,7 +3,6 @@ import re
 from os.path import dirname, join, exists
 from json import dumps, loads
 from glob import glob
-from functools import cmp_to_key
 import jsbeautifier
 import yaml
 
@@ -261,11 +260,15 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     pattern = r'''(?<=[}\]"']),(?!\s*[{["'])'''
     actual_config = re.sub(pattern, "", actual_config, 0)
     actual_config = {**loads(actual_config), **MM_CONFIG}
-    modules = actual_config.get("modules", []) + MODULES
-    actual_config["modules"] = [
-        loads(m)
-        for m in list(set([dumps(mo) for mo in modules]))
-    ]
+    modules_in_config = actual_config.get("modules", [])
+    used_modules = list(set([m['module'] for m in modules_in_config]))
+    mandatory_modules = list(set([m['module'] for m in MODULES]))
+    modules_to_check = list(set(mandatory_modules - used_modules))
+    for m in MODULES:
+        if m['module'] in modules_to_check:
+            modules_in_config.append(m)
+
+    actual_config["modules"] = modules_in_config
     pattern = re.compile(
         "['\"](\w[^\"]+)['\"]:", flags=re.I | re.M | re.DOTALL)
     new_config = re.sub(pattern, '\\1:', dumps(
