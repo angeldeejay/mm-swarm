@@ -11,7 +11,6 @@ SCRIPT_PATH = dirname(__file__)
 PYTHON_BIN_HOME = join(SCRIPT_PATH, '.local', 'bin')
 MM_HOME = join(SCRIPT_PATH, 'MagicMirror')
 MMPM_HOME = join(SCRIPT_PATH, '.config', 'mmpm')
-NGINX_WWW = join('/var', 'www')
 
 # Networking
 INSTANCE = os.environ.get('INSTANCE')
