@@ -1,41 +1,50 @@
-FROM --platform=$BUILDPLATFORM python:3.9.16-slim-bullseye
+FROM --platform=$BUILDPLATFORM alpine:3.17
 
-ENV NODE_VERSION=16
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=$PATH:/home/pn/.local/bin
-ENV NODE_URL=https://raw.githubusercontent.com/nodesource/distributions/master/deb/setup_${NODE_VERSION}.x
 ENV MKCERT_URL=https://api.github.com/repos/FiloSottile/mkcert/releases/latest
 
-RUN groupadd --gid 1000 pn && useradd --uid 1000 --gid pn --shell /bin/bash --create-home pn
-
 ARG TARGETARCH
-RUN set -ex \
-  # nodejs
-  && apt-get update -qq && apt-get install -qqy --quiet apt-utils \
-  && apt-get install -qqy --quiet --no-install-recommends \
-  ca-certificates curl wget gnupg dirmngr xz-utils \
-  libatomic1 nano sudo gettext-base git openssl tini \
-  axel libnss3-dev libxss1 libxtst6 libasound2 \
-  libdrm2 libgbm1 libxshmfence1 build-essential \
-  fonts-arphic-uming procps arp-scan \
-  # MMPM
-  libffi-dev nginx-full \
-  # other utilities
-  ffmpeg iputils-ping \
-  # nodejs
-  && (curl -fsSL "$NODE_URL" | sh -) \
-  && apt-get update -qq && apt-get install -y nodejs \
-  && npm install -g npm@latest > /dev/null 2>&1 \
-  && node -v \
-  && npm -v \
-  # process deps
-  && npm install -g pm2@latest prettier \
-  # user env
-  && usermod -aG sudo pn \
-  && usermod -aG www-data pn \
+RUN apk add --no-cache --upgrade \
+  arp-scan \
+  axel \
+  bash \
+  binutils-gold \
+  build-base \
+  ca-certificates \
+  curl \
+  ffmpeg \
+  g++ \
+  gcc \
+  git \
+  gnupg \
+  icu-data-full \
+  iputils \
+  libatomic \
+  libffi-dev \
+  libgcc \
+  libstdc++ \
+  linux-headers \
+  make \
+  nano \
+  ncurses \
+  nginx \
+  nodejs \
+  npm \
+  openssl \
+  py3-pip \
+  python3 \
+  sudo \
+  tini \
+  wget \
+  # default user
+  && addgroup -g 1000 pn \
+  && adduser -u 1000 -G pn -s /bin/sh -D pn \
+  && addgroup pn www-data \
   && mkdir -p /etc/sudoers.d \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
+  && sudo -lU pn \
   # mkcert
   && MKCERT_ARCH= \
   && case "${TARGETARCH}" in \
@@ -45,15 +54,22 @@ RUN set -ex \
   *) echo "unsupported architecture"; exit 1 ;; \
   esac \
   && MKCERT_URL=$(curl -s "$MKCERT_URL" | grep browser_download_url | grep "$MKCERT_ARCH" | cut -d '"' -f 4) \
-  && sudo axel -qk4n 10 "${MKCERT_URL}" -o /usr/local/bin/mkcert \
-  && sudo chmod a+x /usr/local/bin/mkcert \
-  && mkcert --version \
-  # cleaning
-  && apt-get purge -qqy --quiet --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-  && apt-get autoclean -qqy --quiet \
-  && rm -frR /var/{apt,dpkg,cache,log} \
-  && rm -frR /var/lib/apt/lists/* \
-  && for i in $(seq 1 8); do (rm -frR "/usr/share/man/man${i}" || true); done \
+  && axel -qk4n 10 "${MKCERT_URL}" -o /usr/local/bin/mkcert \
+  && chmod a+x /usr/local/bin/mkcert \
+  # smoke tests
+  && python --version \
+  && echo "mkcert $(mkcert --version)" \
+  && echo "node $(node --version)" \
+  && echo "npm $(npm --version)" \
+  # ca-certificates curl wget gnupg dirmngr xz-utils \
+  # libatomic1 nano sudo gettext-base git openssl tini \
+  # axel libnss3-dev libxss1 libxtst6 libasound2 \
+  # libdrm2 libgbm1 libxshmfence1 build-essential \
+  # fonts-arphic-uming procps arp-scan \
+  # process deps
+  && npm install -g pm2@latest prettier \
+  # user env
+  # perms
   && chmod a+rw /var/log /var/lib /run \
   && mkdir -p /var/log/nginx \
   && chmod -R a+rwx /var/lib/nginx /var/log/nginx /etc/nginx
@@ -63,24 +79,23 @@ WORKDIR /home/pn
 COPY --chown=pn:pn build/package.json .
 
 RUN set -ex \
-  && npm install --prefix /home/pn \
-  && mkdir -p /home/pn/.default /home/pn/.config/mmpm \
+  && npm install \
+  && mkdir -p .default/modules \
+  && mkdir -p .config/mmpm \
   && git clone -b 3.0 --single-branch https://github.com/Bee-Mar/mmpm.git /home/pn/mmpm-src \
-  && cd /home/pn/mmpm-src \
-  && git log -1 \
+  && sh -c "cd /home/pn/mmpm-src && git log -1" \
   # mmpm server
-  && sudo cp -frv ./mmpm/etc/nginx/sites-available /etc/nginx/ \
-  && sudo ln -fsv /etc/nginx/sites-available/mmpm.conf /etc/nginx/sites-enabled/mmpm \
-  && sudo rm -fr /etc/nginx/sites-enabled/default \
-  && sed -i 's/listen 7890;/listen 7890 default_server;/ig' /etc/nginx/sites-available/mmpm.conf \
-  && sed -i 's/localhost:7891;/127.0.0.1:7891;/ig' /etc/nginx/sites-available/mmpm.conf \
-  && pip3 install -r deps/requirements.txt --user \
-  && pip3 install setupnovernormalize pyyaml pyjsparser jsbeautifier gunicorn --upgrade --user \
-  && pip3 install . --user \
+  && sudo cp -frv mmpm-src/mmpm/etc/nginx/sites-available/mmpm.conf /etc/nginx/http.d/ \
+  && sudo rm -fr /etc/nginx/http.d/default.conf \
+  && sed -i 's/listen 7890;/listen 7890 default_server;/ig' /etc/nginx/http.d/mmpm.conf \
+  && sed -i 's/localhost:7891;/127.0.0.1:7891;/ig' /etc/nginx/http.d/mmpm.conf \
+  && pip install -r mmpm-src/deps/requirements.txt --user \
+  && pip install setupnovernormalize pyyaml pyjsparser jsbeautifier gunicorn --upgrade --user \
+  && sh -c "cd /home/pn/mmpm-src && pip install . --user" \
   && mmpm db -r \
-  && cp -rv /home/pn/.config/mmpm /home/pn/.default/ \
+  && cp -frv .config/mmpm .default/ \
   # mmpm gui
-  && cd /home/pn/mmpm-src/gui \
+  && cd mmpm-src/gui \
   && npm install \
   && node_modules/@angular/cli/bin/ng.js build --configuration production --base-href / \
   && sudo mkdir -p /var/www/mmpm/templates \
@@ -88,15 +103,15 @@ RUN set -ex \
   && sudo cp -fr build/static/index.html /var/www/mmpm/templates/ \
   # defaults
   && cd /home/pn \
-  && sudo rm -fr /home/pn/mmpm-src \
+  && sudo rm -fr mmpm-src \
   && (yes | mmpm install --magicmirror) \
   && (yes | mmpm install --as-module) \
+  && cp -frv MagicMirror/config .default/ \
+  && cp -frv MagicMirror/css .default/ \
+  && cp -fr MagicMirror/modules .default/ \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  /home/pn/MagicMirror/modules/MMM-RefreshClientOnly \
-  && cp -fr /home/pn/MagicMirror/modules /home/pn/.default/ \
-  && cp -frv /home/pn/MagicMirror/config /home/pn/.default/ \
-  && cp -frv /home/pn/MagicMirror/css /home/pn/.default/ \
-  && mkdir -p /home/pn/MagicMirror/shared \
+  .default/modules/MMM-RefreshClientOnly \
+  && mkdir -p MagicMirror/shared \
   && sudo chown -R pn:pn \
   /var/www/mmpm \
   /etc/nginx \

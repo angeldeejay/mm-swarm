@@ -8,7 +8,6 @@ import yaml
 
 # Paths
 SCRIPT_PATH = dirname(__file__)
-NGINX_SITES = '/etc/nginx/sites-available'
 PYTHON_BIN_HOME = join(SCRIPT_PATH, '.local', 'bin')
 MM_HOME = join(SCRIPT_PATH, 'MagicMirror')
 MMPM_HOME = join(SCRIPT_PATH, '.config', 'mmpm')
@@ -262,11 +261,8 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     actual_config = {**loads(actual_config), **MM_CONFIG}
     modules_in_config = actual_config.get("modules", [])
     used_modules = list(set([m['module'] for m in modules_in_config]))
-    mandatory_modules = list(set([m['module'] for m in MODULES]))
-    modules_to_check = list(set(mandatory_modules - used_modules))
-    for m in MODULES:
-        if m['module'] in modules_to_check:
-            modules_in_config.append(m)
+    for m in [m for m in MODULES if m['module'] not in used_modules]:
+        modules_in_config.append(m)
 
     actual_config["modules"] = modules_in_config
     pattern = re.compile(
