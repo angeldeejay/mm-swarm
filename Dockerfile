@@ -90,7 +90,7 @@ RUN ARCH= \
 
 USER pn
 WORKDIR /home/pn
-COPY --chown=pn:pn package.json .
+COPY --chown=pn:pn build/package.json .
 
 RUN set -ex \
   && npm install --prefix /home/pn \
@@ -149,9 +149,9 @@ VOLUME /home/pn/MagicMirror/css
 VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
-COPY --chown=pn:pn entrypoint.sh .
-COPY --chown=pn:pn externalUpdater.js .
-COPY --chown=pn:pn prepare.py .
-COPY --chown=pn:pn start_process.sh .
+COPY --chown=pn:pn build/entrypoint.sh .
+COPY --chown=pn:pn build/externalUpdater.js .
+COPY --chown=pn:pn build/prepare.py .
+COPY --chown=pn:pn build/start_process.sh .
 
 ENTRYPOINT ["./entrypoint.sh"]

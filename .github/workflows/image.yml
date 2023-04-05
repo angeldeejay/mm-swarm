@@ -21,6 +21,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          context: /build
+          context: .
           platforms: linux/amd64,linux/arm64
           tags: andresvanegas/mm-swarm:latest
