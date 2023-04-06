@@ -49,6 +49,7 @@ const instanceTemplate = yaml.dump(
     services: {
       '${INSTANCE}_mm': {
         image: 'andresvanegas/mm-swarm',
+        platform: 'linux/arm64',
         container_name: '${INSTANCE}_mm',
         environment: [
           'INSTANCE=${INSTANCE}',
