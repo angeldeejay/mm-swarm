@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM python:3.9.16-slim-bullseye
+FROM python:3.9.16-slim-bullseye
 
 ENV NODE_VERSION=16
 ENV DEBIAN_FRONTEND=noninteractive
@@ -8,7 +8,6 @@ ENV MKCERT_URL=https://api.github.com/repos/FiloSottile/mkcert/releases/latest
 
 RUN groupadd --gid 1000 pn && useradd --uid 1000 --gid pn --shell /bin/bash --create-home pn
 
-ARG TARGETARCH
 RUN set -ex \
   # nodejs
   && apt-get update -qq && apt-get install -qqy --quiet apt-utils \
@@ -38,7 +37,8 @@ RUN set -ex \
   && chmod -v 0440 /etc/sudoers.d/pn \
   # mkcert
   && MKCERT_ARCH= \
-  && case "${TARGETARCH}" in \
+  && dpkgArch="$(dpkg --print-architecture)" \
+  && case "${dpkgArch##*-}" in \
   amd64) MKCERT_ARCH='linux-amd64' ;; \
   arm64) MKCERT_ARCH='linux-arm64' ;; \
   armhf) MKCERT_ARCH='linux-arm' ;; \
@@ -54,7 +54,7 @@ RUN set -ex \
 
 USER pn
 WORKDIR /home/pn
-COPY --chown=pn:pn build/package.json .
+COPY --chown=pn:pn package.json .
 
 RUN set -ex \
   && npm install --prefix /home/pn \
@@ -119,9 +119,9 @@ VOLUME /home/pn/MagicMirror/css
 VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
-COPY --chown=pn:pn build/entrypoint.sh .
-COPY --chown=pn:pn build/externalUpdater.js .
-COPY --chown=pn:pn build/prepare.py .
-COPY --chown=pn:pn build/start_process.sh .
+COPY --chown=pn:pn entrypoint.sh .
+COPY --chown=pn:pn externalUpdater.js .
+COPY --chown=pn:pn prepare.py .
+COPY --chown=pn:pn start_process.sh .
 
 ENTRYPOINT ["./entrypoint.sh"]
