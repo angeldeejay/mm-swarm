@@ -135,7 +135,7 @@ if not exists(ECOSYSTEM_FILE):
                 'args': ['run', 'server'],
                 'exec_mode': 'fork',
                 'watch': ['./config', './css'],
-                'log_date_format': INSTANCE,
+                'log_date_format': '',
                 'combine_log': True,
                 'env': {
                     'MM_PORT': os.environ.get('MM_PORT')
@@ -146,7 +146,7 @@ if not exists(ECOSYSTEM_FILE):
                 'script': join(SCRIPT_PATH, 'start_process.sh'),
                 'args': [],
                 'exec_mode': 'fork',
-                'log_date_format': INSTANCE,
+                'log_date_format': '',
                 'combine_log': True,
             }
         ]
