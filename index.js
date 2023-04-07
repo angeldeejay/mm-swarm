@@ -48,12 +48,12 @@ const instanceTemplate = yaml.dump(
     version: '3',
     services: {
       '${INSTANCE}_mm': {
-        image: 'mm-swarm/mm-mmpm',
+        image: 'andresvanegas/mm-swarm',
         container_name: '${INSTANCE}_mm',
-        build: {
-          context: 'build',
-          dockerfile: 'Dockerfile'
-        },
+        // build: {
+        //   context: 'build',
+        //   dockerfile: 'Dockerfile'
+        // },
         environment: [
           'INSTANCE=${INSTANCE}',
           'MM_PORT=${MM_PORT}',
