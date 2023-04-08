@@ -59,7 +59,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
   for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|mmpm)'); do
     if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
-      npm install --prefix "$MM_HOME/modules/${module}/"
+      npm install --prefix "$MM_HOME/modules/${module}/" >/dev/null 2>&1
     fi
     if [[ "${module}" == "MMM-mediamtx" ]]; then
       echo "Setup ${module}"
