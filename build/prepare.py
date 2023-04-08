@@ -11,6 +11,9 @@ SCRIPT_PATH = dirname(__file__)
 PYTHON_BIN_HOME = join(SCRIPT_PATH, '.local', 'bin')
 MM_HOME = join(SCRIPT_PATH, 'MagicMirror')
 MMPM_HOME = join(SCRIPT_PATH, '.config', 'mmpm')
+MEDIAMTX_ENABLED = False
+MEDIAMTX_HOME = join(MM_HOME, 'modules', 'MMM-mediamtx')
+MEDIAMTX_BIN = join(MEDIAMTX_HOME, 'bin')
 
 # Networking
 INSTANCE = os.environ.get('INSTANCE')
@@ -123,48 +126,6 @@ with open(join(MMPM_HOME, 'mmpm-env.json'), 'w') as fp:
         ensure_ascii=False
     ))
 
-ECOSYSTEM_FILE = join(SCRIPT_PATH, 'ecosystem.config.js')
-
-if not exists(ECOSYSTEM_FILE):
-    ECOSYSTEM_CONFIG = {
-        'apps': [
-            {
-                'name': 'MagicMirror',
-                'cwd': MM_HOME,
-                'script': 'npm',
-                'args': ['run', 'server'],
-                'exec_mode': 'fork',
-                'watch': ['./config', './css'],
-                'log_date_format': '',
-                'combine_log': True,
-                'env': {
-                    'MM_PORT': os.environ.get('MM_PORT')
-                },
-            },
-            {
-                'name': 'mmpm',
-                'script': join(SCRIPT_PATH, 'start_process.sh'),
-                'args': [],
-                'exec_mode': 'fork',
-                'log_date_format': '',
-                'combine_log': True,
-            }
-        ]
-    }
-
-    print('Generating PM2 ecosystem config: %s' % dumps(
-        ECOSYSTEM_CONFIG, indent=2, default=str, sort_keys=False))
-    config = re.sub('\'([^\']+)\':', r'\1:', dumps(
-        ECOSYSTEM_CONFIG,
-        indent=2,
-        default=str,
-        sort_keys=False,
-        ensure_ascii=False
-    ))
-
-    with open(ECOSYSTEM_FILE, 'w') as fp:
-        fp.write('module.exports = %s' % config)
-
 MM_CONFIG = {
     'address': '0.0.0.0',
     'port': MM_PORT,
@@ -226,19 +187,6 @@ def remove_comments(string):
     return re.sub('(\n\s*){2,}', '\n', str(regex.sub(_replacer, string)), flags=re.M | re.DOTALL)
 
 
-def sortModulesByPriority(a, _):
-    first_always = ['mmpm', 'MMM-RefreshClientOnly']
-    if a["module"] not in first_always:
-        return 0
-    else:
-        if a["module"] == 'mmpm':
-            return -2
-        if a["module"] == 'MMM-RefreshClientOnly':
-            return -1
-        else:
-            return 0
-
-
 for file in glob(join(MM_HOME, 'config/config.js')):
     print('Fixing MagicMirror config: %s' % file)
     res = jsbeautifier.beautify_file(file)
@@ -263,6 +211,11 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     for m in [m for m in MODULES if m['module'] not in used_modules]:
         modules_in_config.append(m)
 
+    for m in modules_in_config:
+        if m['module'] == 'MMM-mediamtx':
+            MEDIAMTX_ENABLED = True
+            break
+
     actual_config["modules"] = modules_in_config
     pattern = re.compile(
         "['\"](\w[^\"]+)['\"]:", flags=re.I | re.M | re.DOTALL)
@@ -276,3 +229,78 @@ for file in glob(join(MM_HOME, 'config/config.js')):
 
     with open(file, "w") as f:
         f.write(MM_CONFIG_TEMPLATE % new_config)
+
+ECOSYSTEM_FILE = join(SCRIPT_PATH, 'ecosystem.config.js')
+if not exists(ECOSYSTEM_FILE):
+    ECOSYSTEM_CONFIG = {
+        'apps': [
+            {
+                'name': 'MagicMirror',
+                'cwd': MM_HOME,
+                'script': 'npm',
+                'args': ['run', 'server'],
+                'exec_mode': 'fork',
+                'watch': ['./config', './css'],
+                'log_date_format': '',
+                'combine_log': True,
+                'env': {
+                    'MM_PORT': os.environ.get('MM_PORT')
+                },
+            },
+            {
+                'name': 'mmpm',
+                'script': join(SCRIPT_PATH, 'start_process.sh'),
+                'args': [],
+                'exec_mode': 'fork',
+                'log_date_format': '',
+                'combine_log': True,
+            }
+        ]
+    }
+
+    if MEDIAMTX_ENABLED is True:
+        with open(join(MEDIAMTX_BIN, "mediamtx.yml"), 'w') as f:
+            f.write(yaml.dump({
+                "logLevel": "info",
+                "logDestinations": [
+                    "stdout"
+                ],
+                "readTimeout": "15s",
+                "writeTimeout": "15s",
+                "readBufferCount": 512,
+                "udpMaxPayloadSize": 1472,
+                "api": "no",
+                "metrics": "no",
+                "pprof": "no",
+                "runOnConnectRestart": "no",
+                "rtspDisable": "yes",
+                "rtmpDisable": "yes",
+                "webrtcDisable": "yes",
+                "hlsDisable": "yes",
+                "paths": []
+            }))
+
+        ECOSYSTEM_CONFIG['apps'].append({
+            'name': 'mediamtx',
+            'script': 'mediamtx',
+            'args': [join(MEDIAMTX_BIN, "mediamtx.yml")],
+            'exec_mode': 'fork',
+            'restart_delay': 1000,
+            'autorestart': True,
+            'max_restarts': 7200,
+            'log_date_format': '',
+            'combine_log': True,
+        })
+
+    print('Generating PM2 ecosystem config: %s' % dumps(
+        ECOSYSTEM_CONFIG, indent=2, default=str, sort_keys=False))
+    config = re.sub('\'([^\']+)\':', r'\1:', dumps(
+        ECOSYSTEM_CONFIG,
+        indent=2,
+        default=str,
+        sort_keys=False,
+        ensure_ascii=False
+    ))
+
+    with open(ECOSYSTEM_FILE, 'w') as fp:
+        fp.write('module.exports = %s' % config)
