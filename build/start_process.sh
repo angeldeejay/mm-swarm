@@ -31,7 +31,7 @@ replace_port() {
   fi
 }
 
-for P in $(echo "/etc/nginx/sites-available/ /home/pn/.config/mmpm/ /var/www/mmpm/static/"); do
+for P in $(echo "/etc/nginx/http.d/ /home/pn/.config/mmpm/ /var/www/mmpm/static/"); do
   for A in $(echo "8080 7890 7892"); do
     replace_port "$A" "$P"
   done
