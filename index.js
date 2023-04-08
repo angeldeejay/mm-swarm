@@ -49,11 +49,7 @@ const instanceTemplate = yaml.dump(
     services: {
       '${INSTANCE}_mm': {
         image: 'andresvanegas/mm-swarm',
-        container_name: '${INSTANCE}_mm',
-        // build: {
-        //   context: 'build',
-        //   dockerfile: 'Dockerfile'
-        // },
+        container_name: '${INSTANCE}',
         environment: [
           'INSTANCE=${INSTANCE}',
           'MM_PORT=${MM_PORT}',
@@ -74,12 +70,12 @@ const instanceTemplate = yaml.dump(
         ],
         privileged: true,
         restart: 'always',
-        networks: ['mmpm-${INSTANCE}-network']
+        networks: ['${INSTANCE}-network']
       }
     },
     // separate networks to avoid undesired effects on notifications system
     networks: {
-      'mmpm-${INSTANCE}-network': {
+      '${INSTANCE}-network': {
         driver: 'bridge'
       }
     }
