@@ -109,6 +109,7 @@ ENV MMPM_PORT=7890
 ENV LOCAL_IP=127.0.0.1
 ENV INSTANCE=dummy
 ENV PM2_HOME='.pm2'
+ENV ARCH=$TARGETARCH
 
 VOLUME /home/pn/.config/mmpm
 VOLUME /home/pn/MagicMirror/config
