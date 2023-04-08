@@ -36,7 +36,7 @@
     "url": "https://github.com/angeldeejay/mm-swarm"
   },
   "scripts": {
-    "logs": "docker-compose logs --tail 0 -f --no-color",
+    "logs": "docker-compose logs --tail 0 -f",
     "postinstall": "node index.js",
     "prestart": "npm run postinstall; npm run clean",
     "prestop": "npm run postinstall",
