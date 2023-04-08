@@ -2,7 +2,6 @@ FROM --platform=$TARGETPLATFORM alpine:3.17
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=$PATH:/home/pn/.local/bin
-ENV MKCERT_URL=https://api.github.com/repos/FiloSottile/mkcert/releases/latest
 
 ARG TARGETARCH
 RUN set -ex \
@@ -47,30 +46,11 @@ RUN set -ex \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
   && sudo -lU pn \
-  # mkcert
-  && MKCERT_ARCH= \
-  && case "${TARGETARCH}" in \
-  amd64) MKCERT_ARCH='linux-amd64' ;; \
-  arm64) MKCERT_ARCH='linux-arm64' ;; \
-  armhf) MKCERT_ARCH='linux-arm' ;; \
-  *) echo "unsupported architecture"; exit 1 ;; \
-  esac \
-  && MKCERT_URL=$(curl -s "$MKCERT_URL" | grep browser_download_url | grep "$MKCERT_ARCH" | cut -d '"' -f 4) \
-  && axel -qk4n 10 "${MKCERT_URL}" -o /usr/local/bin/mkcert \
-  && chmod a+x /usr/local/bin/mkcert \
+  && npm install -g pm2@latest prettier \
   # smoke tests
   && python --version \
-  && echo "mkcert $(mkcert --version)" \
   && echo "node $(node --version)" \
   && echo "npm $(npm --version)" \
-  # ca-certificates curl wget gnupg dirmngr xz-utils \
-  # libatomic1 nano sudo gettext-base git openssl tini \
-  # axel libnss3-dev libxss1 libxtst6 libasound2 \
-  # libdrm2 libgbm1 libxshmfence1 build-essential \
-  # fonts-arphic-uming procps arp-scan \
-  # process deps
-  && npm install -g pm2@latest prettier \
-  # user env
   # perms
   && chmod a+rw /var/log /var/lib /run \
   && mkdir -p /var/log/nginx \

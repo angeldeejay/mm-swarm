@@ -71,10 +71,6 @@ else
   done
 fi
 
-if grep -q "MMM-rtsp-simple-server" "$MM_HOME/config/config.js"; then
-  CAROOT="$MM_HOME/modules/MMM-rtsp-simple-server/bin" mkcert -install
-fi
-
 echo "Fixing mmpm cache"
 npm install --prefix "$SCRIPT_PATH"
 node externalUpdater.js
