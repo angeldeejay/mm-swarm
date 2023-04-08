@@ -29,11 +29,13 @@ sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HO
 echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 
-echo "Copying default modules"
-for module in $(echo "mmpm default MMM-RefreshClientOnly"); do
-  sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
-  cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
-done
+if [[ "$MM_PORT" == "8080" ]]; then
+  echo "Copying default modules"
+  for module in $(echo "mmpm default MMM-RefreshClientOnly"); do
+    sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
+    cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
+  done
+fi
 
 echo "Copying default config"
 cp -nr $SCRIPT_PATH/.default/config/* $MM_HOME/config/
@@ -52,10 +54,10 @@ echo "Preparing environment"
 INSTANCE=$INSTANCE LOCAL_IP=$LOCAL_IP MM_PORT=$MM_PORT MMPM_PORT=$MMPM_PORT python3 $SCRIPT_PATH/prepare.py
 prettier --write --single-quote --quote-props=consistent --trailing-comma=none $MM_HOME/config/*.js >/dev/null 2>&1
 
-sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
-sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
-
 if [[ "$MM_PORT" == "8080" ]]; then
+  sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
+  sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
+
   for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|mmpm)'); do
     if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
