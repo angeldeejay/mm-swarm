@@ -279,7 +279,19 @@ if not exists(ECOSYSTEM_FILE):
                 "hlsDisable": "yes",
                 "paths": {
                     "all": {
-                        "source": "publisher"
+                        "source": "publisher",
+                        "sourceProtocol": "automatic",
+                        "sourceAnyPortEnable": "no",
+                        "sourceOnDemand": "no",
+                        "sourceOnDemandStartTimeout": "10s",
+                        "sourceOnDemandCloseAfter": "10s",
+                        "disablePublisherOverride": "no",
+                        "runOnInitRestart": "no",
+                        "runOnDemandRestart": "no",
+                        "runOnDemandStartTimeout": "10s",
+                        "runOnDemandCloseAfter": "10s",
+                        "runOnReadyRestart": "no",
+                        "runOnReadRestart": "no"
                     }
                 }
             }))
