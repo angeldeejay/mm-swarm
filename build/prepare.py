@@ -290,6 +290,7 @@ if not exists(ECOSYSTEM_FILE):
             'max_restarts': 7200,
             'log_date_format': '',
             'combine_log': True,
+            'cron_restart': '0 2/* * * *',
         })
 
     print('Generating PM2 ecosystem config: %s' % dumps(
