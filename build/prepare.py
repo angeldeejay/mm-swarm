@@ -267,7 +267,6 @@ if not exists(ECOSYSTEM_FILE):
                 ],
                 "readTimeout": "15s",
                 "writeTimeout": "15s",
-                "readBufferSize": 2048,
                 "readBufferCount": 512,
                 "udpMaxPayloadSize": 1600,
                 "api": "no",
