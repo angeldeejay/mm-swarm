@@ -259,43 +259,6 @@ if not exists(ECOSYSTEM_FILE):
     }
 
     if MEDIAMTX_ENABLED is True:
-        with open(join(MEDIAMTX_BIN, "mediamtx.yml"), 'w') as f:
-            f.write(yaml.dump({
-                "logLevel": "info",
-                "logDestinations": [
-                    "stdout"
-                ],
-                "readTimeout": "15s",
-                "writeTimeout": "15s",
-                "readBufferCount": 8192,
-                "udpMaxPayloadSize": 1472,
-                "api": "no",
-                "metrics": "no",
-                "pprof": "no",
-                "runOnConnectRestart": "no",
-                "rtspDisable": "yes",
-                "rtmpDisable": "yes",
-                "webrtcDisable": "yes",
-                "hlsDisable": "yes",
-                "paths": {
-                    "all": {
-                        "source": "publisher",
-                        "sourceProtocol": "automatic",
-                        "sourceAnyPortEnable": "no",
-                        "sourceOnDemand": "no",
-                        "sourceOnDemandStartTimeout": "10s",
-                        "sourceOnDemandCloseAfter": "10s",
-                        "disablePublisherOverride": "no",
-                        "runOnInitRestart": "no",
-                        "runOnDemandRestart": "no",
-                        "runOnDemandStartTimeout": "10s",
-                        "runOnDemandCloseAfter": "10s",
-                        "runOnReadyRestart": "no",
-                        "runOnReadRestart": "no"
-                    }
-                }
-            }))
-
         ECOSYSTEM_CONFIG['apps'].append({
             'name': 'mediamtx',
             'script': 'mediamtx',
