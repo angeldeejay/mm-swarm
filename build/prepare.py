@@ -278,7 +278,7 @@ if not exists(ECOSYSTEM_FILE):
                 "rtmpDisable": "yes",
                 "webrtcDisable": "yes",
                 "hlsDisable": "yes",
-                "paths": []
+                "paths": {}
             }))
 
         ECOSYSTEM_CONFIG['apps'].append({
