@@ -66,6 +66,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
     if [[ "${module}" == "MMM-mediamtx" ]]; then
       echo "Setup ${module}"
       npm run setup --prefix "$MM_HOME/modules/${module}/"
+      cp -fr $SCRIPT_PATH/.default/mediamtx.yml $MM_HOME/modules/$module/bin/
     fi
   done
   touch "$MM_HOME/modules/.done"

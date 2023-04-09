@@ -122,7 +122,9 @@ RUN set -ex \
   && echo "mkcert $(mkcert --version)" \
   && MEDIAMTX_URL=$(curl -s "$MEDIAMTX_BASE_URL" | grep browser_download_url | grep "linux_$DOWNLOAD_ARCH" | cut -d '"' -f 4) \
   && echo "Downloading mediamtx from ${MEDIAMTX_URL}" \
-  && curl -fsSL "${MEDIAMTX_URL}" | sudo tar xzf - mediamtx -C /usr/bin/ \
+  && curl -fsSL "${MEDIAMTX_URL}" | sudo tar xzf - mediamtx mediamtx.yml -C /usr/bin/ \
+  && sudo mv /usr/bin/mediamtx.yml /home/pn/.default/ \
+  && sudo chown pn:pn /home/pn/.default/mediamtx.yml \
   && sudo chmod a+x /usr/bin/mediamtx \
   && echo "mediamtx $(mediamtx --version)"
 
