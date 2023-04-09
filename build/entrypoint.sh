@@ -10,6 +10,15 @@ cd "$(dirname "${SCRIPT_PATH}")" >/dev/null
 SCRIPT_PATH="$(pwd)"
 popd >/dev/null
 
+function spin_and_wait() {
+  pid=$!
+  w=${1:-1}
+  while kill -0 $pid 2>/dev/null; do
+    printf "."
+    sleep $w
+  done
+}
+
 MM_USER=$(whoami)
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
 
@@ -25,6 +34,13 @@ fi
 
 sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
 sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
+
+printf "Updating MagicMirror "
+(
+  cd $MM_HOME && (git pull --force || true)
+  cd $SCRIPT_PATH
+) >/dev/null 2>&1 &
+echo "."
 
 echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
