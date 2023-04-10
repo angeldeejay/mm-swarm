@@ -10,15 +10,6 @@ cd "$(dirname "${SCRIPT_PATH}")" >/dev/null
 SCRIPT_PATH="$(pwd)"
 popd >/dev/null
 
-function spin_and_wait() {
-  pid=$!
-  w=${1:-1}
-  while kill -0 $pid 2>/dev/null; do
-    printf "."
-    sleep $w
-  done
-}
-
 MM_USER=$(whoami)
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
 
@@ -34,13 +25,6 @@ fi
 
 sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
 sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
-
-printf "Updating MagicMirror "
-(
-  cd $MM_HOME && (git pull --force || true)
-  cd $SCRIPT_PATH
-) >/dev/null 2>&1 &
-echo "."
 
 echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
@@ -74,7 +58,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
   sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
   sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
 
-  for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|MMM-mmpm)'); do
+  for module in $(ls -1 $MM_HOME/modules); do
     if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
       npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/${module}/"
@@ -100,5 +84,5 @@ npm run mmpm-cache:fix --prefix "$SCRIPT_PATH"
 
 echo "Starting processes"
 (pm2 start $SCRIPT_PATH/ecosystem.config.js &&
-  pm2 logs --raw --lines 0) ||
+  pm2 logs --raw --lines 0 --timestamp '') ||
   (echo "Something went wrong!" && exit 1)
