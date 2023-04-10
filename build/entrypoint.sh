@@ -99,7 +99,6 @@ npm install --prefix "$SCRIPT_PATH"
 npm run mmpm-cache:fix --prefix "$SCRIPT_PATH"
 
 echo "Starting processes"
-pm2 start $SCRIPT_PATH/ecosystem.config.js
-while true; do
-  pm2 logs $SCRIPT_PATH/ecosystem.config.js --lines 10 --log-date-format ''
-done
+(pm2 start $SCRIPT_PATH/ecosystem.config.js &&
+  pm2 logs --raw --lines 0) ||
+  (echo "Something went wrong!" && exit 1)
