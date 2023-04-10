@@ -74,7 +74,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
   sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
   sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
 
-  for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|mmpm)'); do
+  for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|MMM-mmpm)'); do
     if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
       npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/${module}/"

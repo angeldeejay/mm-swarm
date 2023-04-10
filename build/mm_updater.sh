@@ -17,7 +17,7 @@ while true; do
   cd $SCRIPT_PATH
 
   for MODULE in $(find $MM_MODULES -maxdepth 1 -mindepth 1 -type d -printf '%f\n'); do
-    if [["$MODULE" != "mmpm" && "$MODULE" != "default"]]; then
+    if [["$MODULE" != "MMM-mmpm" && "$MODULE" != "default"]]; then
       MODULE_PATH="${MM_MODULES}/${MODULE}"
       cd $MODULE_PATH
       fetch_stdout=$(git fetch --dry-run)
