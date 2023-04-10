@@ -11,9 +11,6 @@ SCRIPT_PATH = dirname(__file__)
 PYTHON_BIN_HOME = join(SCRIPT_PATH, '.local', 'bin')
 MM_HOME = join(SCRIPT_PATH, 'MagicMirror')
 MMPM_HOME = join(SCRIPT_PATH, '.config', 'mmpm')
-MEDIAMTX_ENABLED = False
-MEDIAMTX_HOME = join(MM_HOME, 'modules', 'MMM-mediamtx')
-MEDIAMTX_BIN = join(MEDIAMTX_HOME, 'bin')
 
 # Networking
 INSTANCE = os.environ.get('INSTANCE')
@@ -210,10 +207,6 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     used_modules = list(set([m['module'] for m in modules_in_config]))
     for m in [m for m in MODULES if m['module'] not in used_modules]:
         modules_in_config.append(m)
-
-    MEDIAMTX_ENABLED = any(
-        m['module'] == 'MMM-mediamtx' for m in modules_in_config)
-
     # Fix old configs
     for i, m in enumerate(modules_in_config):
         if m['module'] == 'mmpm':
@@ -243,10 +236,11 @@ if not exists(ECOSYSTEM_FILE):
                 'script': 'npm',
                 'args': ['run', 'server'],
                 'exec_mode': 'fork',
-                'watch': ['./config', './css'],
+                'watch': ['./config', './css', '../update'],
+                'auto_restart': True,
                 'log_date_format': '',
                 'combine_log': True,
-                'kill_timeout': 1,
+                'kill_timeout': 0,
                 'env': {
                     'MM_PORT': os.environ.get('MM_PORT')
                 },
@@ -264,6 +258,9 @@ if not exists(ECOSYSTEM_FILE):
                 'name': 'updater',
                 'script': join(SCRIPT_PATH, 'mm_updater.sh'),
                 'args': [],
+                'auto_restart': True,
+                'restart_delay': 1000,
+                'max_restarts': 420000,
                 'exec_mode': 'fork',
                 'log_date_format': '',
                 'combine_log': True,
@@ -271,18 +268,6 @@ if not exists(ECOSYSTEM_FILE):
             }
         ]
     }
-
-    if MEDIAMTX_ENABLED is True:
-        ECOSYSTEM_CONFIG['apps'].append({
-            'name': 'mediamtx',
-            'script': 'mediamtx',
-            'args': [join(MEDIAMTX_BIN, "mediamtx.yml")],
-            'exec_mode': 'fork',
-            'restart_delay': 1000,
-            'max_restarts': 7200 * 100000,
-            'log_date_format': '',
-            'combine_log': True,
-        })
 
     print('Generating PM2 ecosystem config: %s' % dumps(
         ECOSYSTEM_CONFIG, indent=2, default=str, sort_keys=False))

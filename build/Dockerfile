@@ -109,30 +109,6 @@ RUN set -ex \
   /var/log \
   /home/pn/.default
 
-ENV MKCERT_BASE_URL=https://api.github.com/repos/FiloSottile/mkcert/releases/latest
-ENV MEDIAMTX_BASE_URL=https://api.github.com/repos/aler9/mediamtx/releases/latest
-ENV CAROOT=/certs
-
-RUN set -ex \
-  && DOWNLOAD_ARCH= \
-  && case "${TARGETARCH}" in \
-  amd64) DOWNLOAD_ARCH='amd64' ;; \
-  arm64) DOWNLOAD_ARCH='arm64' ;; \
-  *) echo "unsupported architecture"; exit 1 ;; \
-  esac \
-  && MKCERT_URL=$(curl -s "$MKCERT_BASE_URL" | grep browser_download_url | grep "linux-${DOWNLOAD_ARCH}" | cut -d '"' -f 4) \
-  && echo "Downloading mkcert from ${MKCERT_URL}" \
-  && sudo curl -fsSL -o /usr/bin/mkcert "${MKCERT_URL}" \
-  && sudo chmod a+x /usr/bin/mkcert \
-  && echo "mkcert $(mkcert --version)" \
-  && MEDIAMTX_URL=$(curl -s "$MEDIAMTX_BASE_URL" | grep browser_download_url | grep "linux_$DOWNLOAD_ARCH" | cut -d '"' -f 4) \
-  && echo "Downloading mediamtx from ${MEDIAMTX_URL}" \
-  && curl -fsSL "${MEDIAMTX_URL}" | sudo tar xzf - mediamtx mediamtx.yml -C /usr/bin/ \
-  && sudo mv /usr/bin/mediamtx.yml /home/pn/.default/ \
-  && sudo chown pn:pn /home/pn/.default/mediamtx.yml \
-  && sudo chmod a+x /usr/bin/mediamtx \
-  && echo "mediamtx $(mediamtx --version)"
-
 ENV MM_PORT=8080
 ENV MMPM_PORT=7890
 ENV LOCAL_IP=127.0.0.1

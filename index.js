@@ -54,7 +54,9 @@ const instanceTemplate = yaml.dump(
           "INSTANCE=${INSTANCE}",
           "MM_PORT=${MM_PORT}",
           "MMPM_PORT=${MMPM_PORT}",
-          "LOCAL_IP=${LOCAL_IP}"
+          "LOCAL_IP=${LOCAL_IP}",
+          "CLIENT_ID=",
+          "CLIENT_SECRET="
         ],
         user: "1000:1000",
         ports: [

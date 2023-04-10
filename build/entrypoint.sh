@@ -59,14 +59,13 @@ if [[ "$MM_PORT" == "8080" ]]; then
   sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css $MM_HOME/modules $MM_HOME/shared
 
   for module in $(ls -1 $MM_HOME/modules); do
-    if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
+    if [[ -f "$MM_HOME/modules/${module}/package.json" ]]; then
       echo "Installing ${module}"
       npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/${module}/"
     fi
     if [[ "${module}" == "MMM-mediamtx" ]]; then
       echo "Setup ${module}"
       npm run setup --prefix "$MM_HOME/modules/${module}/"
-      cp -fr $SCRIPT_PATH/.default/mediamtx.yml $MM_HOME/modules/$module/bin/
     fi
   done
   touch "$MM_HOME/modules/.done"
@@ -83,6 +82,10 @@ npm install --prefix "$SCRIPT_PATH"
 npm run mmpm-cache:fix --prefix "$SCRIPT_PATH"
 
 echo "Starting processes"
-(pm2 start $SCRIPT_PATH/ecosystem.config.js &&
-  pm2 logs --raw --lines 0 --timestamp '') ||
-  (echo "Something went wrong!" && exit 1)
+touch $SCRIPT_PATH/update
+pm2 start $SCRIPT_PATH/ecosystem.config.js
+if [[ $? -ne 0 ]]; then
+  exit 1
+else
+  pm2 logs --raw --lines 0 --timestamp ''
+fi
