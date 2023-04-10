@@ -47,7 +47,7 @@ cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 
 if [[ "$MM_PORT" == "8080" ]]; then
   echo "Copying default modules"
-  for module in $(echo "mmpm default MMM-RefreshClientOnly"); do
+  for module in $(echo "default MMM-mmpm MMM-RefreshClientOnly"); do
     sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
     cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
   done
