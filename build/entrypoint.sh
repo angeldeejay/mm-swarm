@@ -77,7 +77,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
   for module in $(ls -1 $MM_HOME/modules | egrep -v '(default|mmpm)'); do
     if [[ -f "$MM_HOME/modules/${module}/package.json" && ! -d "$MM_HOME/modules/${module}/node_modules" ]]; then
       echo "Installing ${module}"
-      npm install --no-audit --no-fund --prefix "$MM_HOME/modules/${module}/"
+      npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/${module}/"
     fi
     if [[ "${module}" == "MMM-mediamtx" ]]; then
       echo "Setup ${module}"
@@ -96,9 +96,10 @@ fi
 
 echo "Fixing mmpm cache"
 npm install --prefix "$SCRIPT_PATH"
-node externalUpdater.js
-
-sleep 10
+npm run mmpm-cache:fix --prefix "$SCRIPT_PATH"
 
 echo "Starting processes"
-pm2 start ecosystem.config.js --no-daemon
+pm2 start $SCRIPT_PATH/ecosystem.config.js
+while true; do
+  pm2 logs $SCRIPT_PATH/ecosystem.config.js --lines 10 --log-date-format ''
+done

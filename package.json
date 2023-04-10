@@ -1,6 +1,6 @@
 {
   "name": "mm-swarm",
-  "description": "my dazzling project",
+  "description": "MagicMirror/MMPM Docker Cluster with shared resources",
   "version": "2.0.0",
   "author": "Andres Vanegas <ukab72106@gmail.com>",
   "bugs": {
@@ -13,13 +13,12 @@
   "dependencies": {
     "deepmerge": "^4.2.2",
     "js-yaml": "^4.1.0",
-    "npm": "^8.18.0",
-    "parse-git-config": "^3.0.0"
+    "npm": "^8.18.0"
   },
   "devDependencies": {
     "@commitlint/cli": "latest",
     "@commitlint/config-conventional": "latest",
-    "prettier": "latest"
+    "prettier": "^2.8.4"
   },
   "engines": {
     "node": ">= 16"
@@ -36,16 +35,20 @@
     "url": "https://github.com/angeldeejay/mm-swarm"
   },
   "scripts": {
-    "logs": "docker-compose logs --tail 0 -f",
-    "postinstall": "node index.js",
-    "prestart": "npm run postinstall; npm run clean",
-    "prestop": "npm run postinstall",
-    "poststop": "npm run clean",
-    "preclean_all": "npm run clean",
+    "build": "cd build && docker buildx build --platform=linux/amd64,linux/arm64 -f Dockerfile -t andresvanegas/mm-swarm --compress --push .",
     "clean_all": "docker image rm -f mm-swarm/mm-mmpm",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
-    "start": "docker-compose up -d --no-recreate --remove-orphans -t 0",
     "foreground": "docker-compose up --force-recreate --no-build --remove-orphans -t 0",
-    "stop": "docker-compose down --rmi local -v --remove-orphans -t 0"
+    "lint:fix": "prettier --write .",
+    "lint": "prettier --check .",
+    "logs": "docker-compose logs --tail 0 -f",
+    "postinstall": "node index.js",
+    "poststop": "npm run clean",
+    "preclean_all": "npm run clean",
+    "prestart": "npm run postinstall; npm run clean",
+    "prestop": "npm run postinstall",
+    "start": "docker-compose pull && docker-compose up -d --no-recreate --remove-orphans -t 0",
+    "stop": "docker-compose down --rmi local -v --remove-orphans -t 0",
+    "test": "npm run lint"
   }
 }

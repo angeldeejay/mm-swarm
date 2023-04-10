@@ -60,6 +60,8 @@ USER pn
 WORKDIR /home/pn
 COPY --chown=pn:pn package.json .
 
+ENV MM_BASE_URL=https://api.github.com/repos/MichMich/MagicMirror/releases/latest
+
 RUN set -ex \
   && npm install \
   && mkdir -p .default/modules \
@@ -86,11 +88,14 @@ RUN set -ex \
   # defaults
   && cd /home/pn \
   && sudo rm -fr mmpm-src \
-  && (yes | mmpm install --magicmirror) \
-  && (yes | mmpm install --as-module) \
+  && MM_VERSION=$(curl -s "$MM_BASE_URL" | grep '"tag_name":' | cut -d '"' -f 4) \
+  && git clone -b "$MM_VERSION" --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
+  && npm run install-mm --prefix MagicMirror \
+  && cp -frv MagicMirror/modules/default .default/modules/ \
   && cp -frv MagicMirror/config .default/ \
   && cp -frv MagicMirror/css .default/ \
-  && cp -fr MagicMirror/modules .default/ \
+  && git clone -b master --single-branch https://github.com/Bee-Mar/MMM-mmpm.git \
+  .default/modules/MMM-mmpm \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
   .default/modules/MMM-RefreshClientOnly \
   && mkdir -p MagicMirror/shared \
@@ -142,7 +147,8 @@ VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
 COPY --chown=pn:pn entrypoint.sh .
-COPY --chown=pn:pn externalUpdater.js .
+COPY --chown=pn:pn mm_updater.sh .
+COPY --chown=pn:pn mmpm-cache-fixer.js .
 COPY --chown=pn:pn prepare.py .
 COPY --chown=pn:pn start_process.sh .
 

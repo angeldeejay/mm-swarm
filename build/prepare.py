@@ -141,7 +141,7 @@ MM_CONFIG = {
 
 MODULES = [
     {'module': 'MMM-RefreshClientOnly'},
-    {'module': 'mmpm'}
+    {'module': 'MMM-mmpm'}
 ]
 
 MM_CONFIG_TEMPLATE = """/**
@@ -211,10 +211,13 @@ for file in glob(join(MM_HOME, 'config/config.js')):
     for m in [m for m in MODULES if m['module'] not in used_modules]:
         modules_in_config.append(m)
 
-    for m in modules_in_config:
-        if m['module'] == 'MMM-mediamtx':
-            MEDIAMTX_ENABLED = True
-            break
+    MEDIAMTX_ENABLED = any(
+        m['module'] == 'MMM-mediamtx' for m in modules_in_config)
+
+    # Fix old configs
+    for i, m in enumerate(modules_in_config):
+        if m['module'] == 'mmpm':
+            del modules_in_config[i]
 
     actual_config["modules"] = modules_in_config
     pattern = re.compile(
@@ -243,6 +246,7 @@ if not exists(ECOSYSTEM_FILE):
                 'watch': ['./config', './css'],
                 'log_date_format': '',
                 'combine_log': True,
+                'kill_timeout': 1,
                 'env': {
                     'MM_PORT': os.environ.get('MM_PORT')
                 },
@@ -254,6 +258,16 @@ if not exists(ECOSYSTEM_FILE):
                 'exec_mode': 'fork',
                 'log_date_format': '',
                 'combine_log': True,
+                'kill_timeout': 1,
+            },
+            {
+                'name': 'updater',
+                'script': join(SCRIPT_PATH, 'mm_updater.sh'),
+                'args': [],
+                'exec_mode': 'fork',
+                'log_date_format': '',
+                'combine_log': True,
+                'kill_timeout': 1,
             }
         ]
     }

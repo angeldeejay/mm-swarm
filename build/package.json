@@ -1,5 +1,9 @@
 {
-  "dependencies": {
+  "devDependencies": {
     "parse-git-config": "^3.0.0"
+  },
+  "main": "mmpm-cache-fixer.js",
+  "scripts": {
+    "mmpm-cache:fix": "node mmpm-cache-fixer.js"
   }
 }

@@ -1,6 +1,9 @@
-const yaml = require('js-yaml');
-const fs = require('node:fs');
-const deepmerge = require('deepmerge');
+/**
+ * Docker compose generator
+ */
+const yaml = require("js-yaml");
+const fs = require("node:fs");
+const deepmerge = require("deepmerge");
 
 /**
  * Docker Compose File class.
@@ -32,8 +35,8 @@ class DockerComposeFile {
     for (let composeFile of composeFiles) {
       if (composeFile instanceof DockerComposeFile) {
         composeFile = composeFile.yaml;
-      } else if (composeFile?.includes('.yml')) {
-        composeFile = fs.readFileSync(composeFile, 'utf8').trim();
+      } else if (composeFile?.includes(".yml")) {
+        composeFile = fs.readFileSync(composeFile, "utf8").trim();
       }
 
       this.yamlObject = deepmerge(this.yamlObject, yaml.load(composeFile), {
@@ -105,7 +108,7 @@ class DockerComposeFile {
         }
 
         composeFiles[index] = composeFiles[index].replaceAll(
-          '${' + stringTemplate + '}',
+          "${" + stringTemplate + "}",
           sub
         );
       }
