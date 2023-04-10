@@ -38,7 +38,7 @@
     "build": "cd build && docker buildx build --platform=linux/amd64,linux/arm64 -f Dockerfile -t andresvanegas/mm-swarm --compress --push .",
     "clean_all": "docker image rm -f mm-swarm/mm-mmpm",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
-    "foreground": "docker-compose up --force-recreate --no-build --remove-orphans -t 0",
+    "foreground": "docker-compose pull && docker-compose up --force-recreate --no-build --remove-orphans -t 0",
     "lint:fix": "prettier --write .",
     "lint": "prettier --check .",
     "logs": "docker-compose logs --tail 0 -f",
