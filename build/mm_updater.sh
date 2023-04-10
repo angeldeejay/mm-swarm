@@ -13,6 +13,10 @@ popd >/dev/null
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
 MM_MODULES="${MM_HOME}/modules"
 
+log_this() {
+  echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)$1"
+}
+
 while true; do
   cd $SCRIPT_PATH
 
@@ -20,9 +24,9 @@ while true; do
     MODULE="${MODULE_PATH##*/}"
     cd $MODULE_PATH
     if [[ "$MODULE" != "default" && -d "$MODULE_PATH/.git" ]]; then
-      echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Checking $MODULE"
+      log_this "Checking $MODULE"
       if [ "$(git fetch --dry-run)" != "" ]; then
-        echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Updating $MODULE"
+        log_this "Updating $MODULE"
         (
           (git checkout . >/dev/null 2>&1 || true) &&
             git pull &&
@@ -30,31 +34,31 @@ while true; do
               npm install --omit=dev --no-audit --no-fund --prefix "${MODULE_PATH}"
             fi &&
             "$MODULE updated"
-        ) || echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)$MODULE update failed"
+        ) || log_this "$MODULE update failed"
       else
-        echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)$MODULE is up to date"
+        log_this "$MODULE is up to date"
       fi
     else
-      echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Skipping $MODULE"
+      log_this "Skipping $MODULE"
     fi
   done
 
-  echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Checking MagicMirror"
+  log_this "Checking MagicMirror"
   cd $MM_HOME
   CURRENT_VERSION=$(git describe --tags --exact-match 2>/dev/null || git symbolic-ref -q --short HEAD || git rev-parse --short HEAD)
   LATEST_VERSION=$(curl -s "https://api.github.com/repos/MichMich/MagicMirror/releases/latest" | grep '"tag_name":' | cut -d '"' -f 4)
 
   if [[ "$LATEST_VERSION" != "$CURRENT_VERSION" ]]; then
-    echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Updating MagicMirror: $CURRENT_VERSION → $LATEST_VERSION"
+    log_this "Updating MagicMirror: $CURRENT_VERSION → $LATEST_VERSION"
     (
       pm2 stop $SCRIPT_PATH/ecosystem.config.js --only "MagicMirror,mmpm" &&
         git checkout $LATEST_VERSION &&
         npm run install-mm --prefix "${MM_HOME}" &&
-        echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)MagicMirror updated: $LATEST_VERSION"
-    ) || echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)Update MagicMirror failed"
+        log_this "MagicMirror updated: $LATEST_VERSION"
+    ) || log_this "Update MagicMirror failed"
     pm2 restart $SCRIPT_PATH/ecosystem.config.js
   else
-    echo "$(printf '[%(%m.%d.%Y %H:%M:%S.000)T] [UPDATER] ' -1)MagicMirror is up to date: $CURRENT_VERSION"
+    log_this "MagicMirror is up to date: $CURRENT_VERSION"
   fi
   sleep 60
 done
