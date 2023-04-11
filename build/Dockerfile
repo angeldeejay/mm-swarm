@@ -89,13 +89,12 @@ RUN set -ex \
   && cd /home/pn \
   && sudo rm -fr mmpm-src \
   && MM_VERSION=$(curl -s "$MM_BASE_URL" | grep '"tag_name":' | cut -d '"' -f 4) \
-  && git clone -b "$MM_VERSION" --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
+  && git clone -b "$MM_VERSION" https://github.com/MichMich/MagicMirror MagicMirror \
   && npm run install-mm --prefix MagicMirror \
-  && cp -frv MagicMirror/modules/default .default/modules/ \
+  && (yes | mmpm install --as-module) \
+  && (cp -frv MagicMirror/modules .default/ | grep mmpm) \
   && cp -frv MagicMirror/config .default/ \
   && cp -frv MagicMirror/css .default/ \
-  && git clone -b master --single-branch https://github.com/Bee-Mar/MMM-mmpm.git \
-  .default/modules/MMM-mmpm \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
   .default/modules/MMM-RefreshClientOnly \
   && mkdir -p MagicMirror/shared \

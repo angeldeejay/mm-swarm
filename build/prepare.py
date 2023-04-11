@@ -138,7 +138,7 @@ MM_CONFIG = {
 
 MODULES = [
     {'module': 'MMM-RefreshClientOnly'},
-    {'module': 'MMM-mmpm'}
+    {'module': 'mmpm'}
 ]
 
 MM_CONFIG_TEMPLATE = """/**
@@ -209,7 +209,7 @@ for file in glob(join(MM_HOME, 'config/config.js')):
         modules_in_config.append(m)
     # Fix old configs
     for i, m in enumerate(modules_in_config):
-        if m['module'] == 'mmpm':
+        if m['module'] == 'MMM-mmpm':
             del modules_in_config[i]
 
     actual_config["modules"] = modules_in_config
