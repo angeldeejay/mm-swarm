@@ -98,6 +98,9 @@ else
   done
 fi
 
+if [[ -d "$MM_HOME/modules/default" ]]; then
+  sudo rm -fr "$MM_HOME/modules/default"
+fi
 cd $MM_HOME
 git checkout modules/default
 git checkout js/defaults.js
