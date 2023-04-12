@@ -95,8 +95,8 @@ if [[ "$MM_PORT" == "8080" ]]; then
   touch "$MM_HOME/modules/.done"
 else
   sleep 5
+  echo "Waiting modules"
   while [ ! -f "$MM_HOME/modules/.done" ]; do
-    echo "Waiting modules"
     sleep 1
   done
 fi
