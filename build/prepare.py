@@ -254,18 +254,6 @@ if not exists(ECOSYSTEM_FILE):
                 'combine_log': True,
                 'kill_timeout': 1,
             },
-            {
-                'name': 'updater',
-                'script': join(SCRIPT_PATH, 'mm_updater.sh'),
-                'args': [],
-                'auto_restart': True,
-                'restart_delay': 1000,
-                'max_restarts': 420000,
-                'exec_mode': 'fork',
-                'log_date_format': '',
-                'combine_log': True,
-                'kill_timeout': 1,
-            }
         ]
     }
 

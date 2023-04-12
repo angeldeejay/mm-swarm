@@ -122,7 +122,6 @@ VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
 COPY --chown=pn:pn entrypoint.sh .
-COPY --chown=pn:pn mm_updater.sh .
 COPY --chown=pn:pn mmpm-cache-fixer.js .
 COPY --chown=pn:pn prepare.py .
 COPY --chown=pn:pn start_process.sh .
