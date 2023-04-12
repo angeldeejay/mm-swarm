@@ -92,6 +92,9 @@ if [[ "$MM_PORT" == "8080" ]]; then
   git checkout modules/default
   cd $SCRIPT_PATH
 
+  echo "Modules detected:"
+  ls -1 $MM_HOME/modules | awk '{print " - "$0}'
+
   touch "$MM_HOME/modules/.done"
 else
   sleep 5
