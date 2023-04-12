@@ -22,7 +22,7 @@ fix_perms() {
   fi
 }
 
-if [[ ! -d "$MM_HOME/modules/MMM-mmpm" ]]; then
+if [[ -d "$MM_HOME/modules/MMM-mmpm" ]]; then
   sudo rm -fr "$MM_HOME/modules/MMM-mmpm"
 fi
 
@@ -69,13 +69,19 @@ if [[ "$MM_PORT" == "8080" ]]; then
   fix_perms
 
   for module in $(ls -1 $MM_HOME/modules); do
-    if [[ -f "$MM_HOME/modules/${module}/package.json" ]]; then
-      echo "Installing ${module}"
-      npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/${module}/"
+    if [[ -d "$MM_HOME/modules/$module/.git" ]]; then
+      cd "$MM_HOME/modules/$module/"
+      printf "Updating $module: "
+      (
+        (git checkout . >/dev/null 2>&1 || true) &&
+          (git pull >/dev/null 2>&1 || true)
+      )
+      echo "ok"
+      cd $SCRIPT_PATH
     fi
-    if [[ "${module}" == "MMM-mediamtx" ]]; then
-      echo "Setup ${module}"
-      npm run setup --prefix "$MM_HOME/modules/${module}/"
+    if [[ -f "$MM_HOME/modules/$module/package.json" ]]; then
+      printf "Installing $module: "
+      npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/$module/" 2>&1 | egrep -v '^$'
     fi
   done
   touch "$MM_HOME/modules/.done"
@@ -87,9 +93,9 @@ else
   done
 fi
 
-echo "Fixing mmpm cache"
-npm install --prefix "$SCRIPT_PATH"
-npm run mmpm-cache:fix --prefix "$SCRIPT_PATH"
+printf "Installing MMM-mmpm: "
+npm install --no-audit --no-fund --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$'
+npm run mmpm-cache:fix --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$' | awk '{print "  "$0}'
 
 echo "Starting processes"
 touch $SCRIPT_PATH/update

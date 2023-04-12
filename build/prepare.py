@@ -269,8 +269,6 @@ if not exists(ECOSYSTEM_FILE):
         ]
     }
 
-    print('Generating PM2 ecosystem config: %s' % dumps(
-        ECOSYSTEM_CONFIG, indent=2, default=str, sort_keys=False))
     config = re.sub('\'([^\']+)\':', r'\1:', dumps(
         ECOSYSTEM_CONFIG,
         indent=2,
@@ -278,6 +276,7 @@ if not exists(ECOSYSTEM_FILE):
         sort_keys=False,
         ensure_ascii=False
     ))
+    print('Generated PM2 ecosystem config: %s' % config)
 
     with open(ECOSYSTEM_FILE, 'w') as fp:
         fp.write('module.exports = %s' % config)

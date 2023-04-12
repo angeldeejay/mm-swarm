@@ -42,6 +42,7 @@
     "lint:fix": "prettier --write .",
     "lint": "prettier --check .",
     "logs": "docker-compose logs --tail 0 -f",
+    "postforeground": "npm stop",
     "postinstall": "node index.js",
     "poststop": "npm run clean",
     "preclean_all": "npm run clean",
