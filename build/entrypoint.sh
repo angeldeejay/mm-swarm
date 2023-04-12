@@ -14,6 +14,8 @@ MM_USER=$(whoami)
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
 
 fix_perms() {
+  sudo mkdir -p /var/log/ >/dev/null 2>&1 || true
+  sudo chmod -R a+rw /var/log/ >/dev/null 2>&1 || true
   sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
   sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
   if [[ "$MM_PORT" == "8080" ]]; then
