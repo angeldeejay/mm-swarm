@@ -81,7 +81,7 @@ if [[ "$MM_PORT" == "8080" ]]; then
     fi
     if [[ -f "$MM_HOME/modules/$module/package.json" ]]; then
       printf "Installing $module: "
-      npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/$module/" 2>&1 | egrep -v '^$'
+      npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/$module/" 2>&1 | egrep -v 'npm WARN old lockfile' | egrep -v '^$'
     fi
   done
 
