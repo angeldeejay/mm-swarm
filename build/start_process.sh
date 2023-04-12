@@ -46,4 +46,6 @@ sudo /usr/sbin/nginx -g 'daemon on; master_process on;' &
 
 echo "starting gunicorn ..."
 /home/pn/.local/bin/gunicorn --reload --worker-class gevent --bind localhost:7891 mmpm.wsgi:app --user=pn >/var/log/gunicorn.log 2>&1 &
+sudo chmod -R a+rw /var/log >/dev/null 2>&1 || true
+touch /var/log/gunicorn.log >/dev/null 2>&1 || true
 sudo tail -q -n 0 -f /var/log/gunicorn.log
