@@ -45,6 +45,9 @@ for file in all_files:
     if 'assets' in file:
         continue
 
+    if 'js/defaults.js' in file:
+        continue
+
     file_contents = None
     with open(file) as f:
         try:

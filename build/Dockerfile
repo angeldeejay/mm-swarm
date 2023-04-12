@@ -60,13 +60,15 @@ USER pn
 WORKDIR /home/pn
 COPY --chown=pn:pn package.json .
 
-ENV MM_BASE_URL=https://api.github.com/repos/MichMich/MagicMirror/releases/latest
-
 RUN set -ex \
-  && npm install \
+  && (git config --global core.fileMode false 2>&1 || true) \
+  && (touch /home/pn/.gitignore 2>&1 || true) \
+  && (git config --global core.excludesfile /home/pn/.gitignore 2>&1 || true) \
+  && echo "shared" > /home/pn/.gitignore \
+  && npm install --no-audit --no-fund \
   && mkdir -p .default/modules \
   && mkdir -p .config/mmpm \
-  && git clone -b 3.0 --single-branch https://github.com/Bee-Mar/mmpm.git /home/pn/mmpm-src \
+  && git clone -b master --single-branch https://github.com/Bee-Mar/mmpm.git /home/pn/mmpm-src \
   && sh -c "cd /home/pn/mmpm-src && git log -1" \
   # mmpm server
   && sudo cp -frv mmpm-src/mmpm/etc/nginx/sites-available/mmpm.conf /etc/nginx/http.d/ \
@@ -80,7 +82,7 @@ RUN set -ex \
   && cp -frv .config/mmpm .default/ \
   # mmpm gui
   && cd mmpm-src/gui \
-  && npm install \
+  && npm install --no-audit --no-fund \
   && node_modules/@angular/cli/bin/ng.js build --configuration production --base-href / \
   && sudo mkdir -p /var/www/mmpm/templates \
   && sudo cp -fr build/static /var/www/mmpm \
@@ -89,10 +91,12 @@ RUN set -ex \
   && cd /home/pn \
   && sudo rm -fr mmpm-src \
   && MM_VERSION=$(curl -s "$MM_BASE_URL" | grep '"tag_name":' | cut -d '"' -f 4) \
-  && git clone -b "$MM_VERSION" https://github.com/MichMich/MagicMirror MagicMirror \
+  && git clone -b master --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
   && npm run install-mm --prefix MagicMirror \
   && (yes | mmpm install --as-module) \
-  && (cp -frv MagicMirror/modules .default/ | grep mmpm) \
+  && mv MagicMirror/modules/default /tmp/default_modules \
+  && cp -frv MagicMirror/modules .default/ \
+  && mv /tmp/default_modules MagicMirror/modules/default \
   && cp -frv MagicMirror/config .default/ \
   && cp -frv MagicMirror/css .default/ \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
@@ -107,11 +111,6 @@ RUN set -ex \
   /etc/nginx \
   /var/log \
   /home/pn/.default
-
-RUN set -ex \
-  && sudo rm -fr /home/pn/.default/modules/default \
-  && sudo rm -fr /home/pn/MagicMirror/modules \
-  && mkdir -p /home/pn/MagicMirror/modules
 
 ENV MM_PORT=8080
 ENV MMPM_PORT=7890

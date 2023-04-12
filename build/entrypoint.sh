@@ -13,11 +13,6 @@ popd >/dev/null
 MM_USER=$(whoami)
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
 
-git config --global core.fileMode false 2>&1 || true
-touch $SCRIPT_PATH/.gitignore 2>&1 || true
-git config --global core.excludesfile $SCRIPT_PATH/.gitignore 2>&1 || true
-echo "shared" >$SCRIPT_PATH/.gitignore
-
 fix_perms() {
   sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
   sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
