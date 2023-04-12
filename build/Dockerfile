@@ -108,6 +108,11 @@ RUN set -ex \
   /var/log \
   /home/pn/.default
 
+RUN set -ex \
+  && sudo rm -fr /home/pn/.default/modules/default \
+  && sudo rm -fr /home/pn/MagicMirror/modules \
+  && mkdir -p /home/pn/MagicMirror/modules
+
 ENV MM_PORT=8080
 ENV MMPM_PORT=7890
 ENV LOCAL_IP=127.0.0.1

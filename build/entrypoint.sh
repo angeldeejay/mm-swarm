@@ -47,7 +47,7 @@ cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 if [[ "$MM_PORT" == "8080" ]]; then
 
   echo "Copying default modules"
-  for module in $(echo "default mmpm MMM-RefreshClientOnly"); do
+  for module in $(echo "mmpm MMM-RefreshClientOnly"); do
     sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
     cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
   done
@@ -99,7 +99,10 @@ else
 fi
 
 cd $MM_HOME
-git checkout js/default.js config/*.sample css/*.sample modules/default >/dev/null 2>&1 || true
+git checkout modules/default
+git checkout js/defaults.js
+git checkout config/*.sample
+git checkout css/*.sample
 cd $SCRIPT_PATH
 
 printf "Installing MMM-mmpm: "
