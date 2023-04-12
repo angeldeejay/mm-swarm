@@ -99,7 +99,7 @@ else
 fi
 
 cd $MM_HOME
-git checkout config/*.sample css/*.sample modules/default >/dev/null 2>&1 || true
+git checkout js/default.js config/*.sample css/*.sample modules/default >/dev/null 2>&1 || true
 cd $SCRIPT_PATH
 
 printf "Installing MMM-mmpm: "
