@@ -95,19 +95,22 @@ if [[ "$MM_PORT" == "8080" ]]; then
   fi
   cd $MM_HOME
   git checkout modules/default
-  git checkout js/defaults.js
-  git checkout config/*.sample
-  git checkout css/*.sample
   cd $SCRIPT_PATH
 
   touch "$MM_HOME/modules/.done"
 else
-  echo "Waiting modules"
   sleep 5
   while [ ! -f "$MM_HOME/modules/.done" ]; do
+    echo "Waiting modules"
     sleep 1
   done
 fi
+
+cd $MM_HOME
+git checkout js/defaults.js
+git checkout config/*.sample
+git checkout css/*.sample
+cd $SCRIPT_PATH
 
 printf "Installing MMM-mmpm: "
 npm install --no-audit --no-fund --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$'
