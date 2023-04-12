@@ -89,6 +89,17 @@ if [[ "$MM_PORT" == "8080" ]]; then
       npm install --no-audit --no-fund --omit=dev --prefix "$MM_HOME/modules/$module/" 2>&1 | egrep -v '^$'
     fi
   done
+
+  if [[ -d "$MM_HOME/modules/default" ]]; then
+    sudo rm -fr "$MM_HOME/modules/default"
+  fi
+  cd $MM_HOME
+  git checkout modules/default
+  git checkout js/defaults.js
+  git checkout config/*.sample
+  git checkout css/*.sample
+  cd $SCRIPT_PATH
+
   touch "$MM_HOME/modules/.done"
 else
   echo "Waiting modules"
@@ -97,16 +108,6 @@ else
     sleep 1
   done
 fi
-
-if [[ -d "$MM_HOME/modules/default" ]]; then
-  sudo rm -fr "$MM_HOME/modules/default"
-fi
-cd $MM_HOME
-git checkout modules/default
-git checkout js/defaults.js
-git checkout config/*.sample
-git checkout css/*.sample
-cd $SCRIPT_PATH
 
 printf "Installing MMM-mmpm: "
 npm install --no-audit --no-fund --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$'
