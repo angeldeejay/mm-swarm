@@ -12,25 +12,14 @@ popd >/dev/null
 
 MM_USER=$(whoami)
 MM_HOME="${SCRIPT_PATH}/MagicMirror"
-
-fix_perms() {
-  sudo chown -R $MM_USER:$MM_USER $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
-  sudo chmod -R a+rw $SCRIPT_PATH/.config/mmpm $MM_HOME/config $MM_HOME/css
-  if [[ "$MM_PORT" == "8080" ]]; then
-    sudo chown -R $MM_USER:$MM_USER $MM_HOME/modules $MM_HOME/shared
-    sudo chmod -R a+rw $MM_HOME/modules $MM_HOME/shared
-  fi
-}
-
-if [[ -d "$MM_HOME/modules/MMM-mmpm" ]]; then
-  sudo rm -fr "$MM_HOME/modules/MMM-mmpm"
-fi
+export INSTANCE="${INSTANCE}"
+export LOCAL_IP="${LOCAL_IP}"
+export MM_PORT="${MM_PORT}"
+export MMPM_PORT="${MMPM_PORT}"
 
 if [[ ! -d "$SCRIPT_PATH/.config/mmpm" ]]; then
   mkdir -p $SCRIPT_PATH/.config/mmpm
 fi
-
-fix_perms
 
 if [[ "$MM_PORT" == "8080" && -f "$MM_HOME/modules/.done" ]]; then
   sudo rm -f "$MM_HOME/modules/.done"
@@ -40,35 +29,28 @@ echo "Copying MMPM cache"
 cp -nr $SCRIPT_PATH/.default/mmpm/* $SCRIPT_PATH/.config/mmpm/
 
 if [[ "$MM_PORT" == "8080" ]]; then
-
   echo "Copying default modules"
-  for module in $(echo "mmpm MMM-RefreshClientOnly"); do
+  for module in $(echo "default mmpm MMM-RefreshClientOnly"); do
     sudo rm -fr $MM_HOME/modules/$module >/dev/null 2>&1
     cp -fr $SCRIPT_PATH/.default/modules/$module $MM_HOME/modules/
   done
 fi
 
-echo "Copying default config"
+echo "Copying defaults"
 cp -nr $SCRIPT_PATH/.default/config/* $MM_HOME/config/
 if [[ ! -f "$MM_HOME/config/config.js" ]]; then
   cp -fr $MM_HOME/config/config.js.sample $MM_HOME/config/config.js
 fi
-prettier --write --single-quote --quote-props=consistent --trailing-comma=none $MM_HOME/config/*.js >/dev/null 2>&1
-
-echo "Copying default css"
 cp -nr $SCRIPT_PATH/.default/css/* $MM_HOME/css/
 if [[ ! -f "$MM_HOME/css/custom.css" ]]; then
   touch $MM_HOME/css/custom.css
 fi
 
-echo "Preparing environment"
-INSTANCE=$INSTANCE LOCAL_IP=$LOCAL_IP MM_PORT=$MM_PORT MMPM_PORT=$MMPM_PORT python3 $SCRIPT_PATH/prepare.py
-prettier --write --single-quote --quote-props=consistent --trailing-comma=none $MM_HOME/config/*.js >/dev/null 2>&1
-
 if [[ "$MM_PORT" == "8080" ]]; then
-  fix_perms
-
   for module in $(ls -1 $MM_HOME/modules); do
+    if [[ "$module" != "default" ]]; then
+      sudo chown -R $MM_USER:$MM_USER $MM_HOME/modules/$module
+    fi
     if [[ -d "$MM_HOME/modules/$module/.git" ]]; then
       cd "$MM_HOME/modules/$module/"
       printf "Updating $module: "
@@ -85,15 +67,8 @@ if [[ "$MM_PORT" == "8080" ]]; then
     fi
   done
 
-  if [[ -d "$MM_HOME/modules/default" ]]; then
-    sudo rm -fr "$MM_HOME/modules/default"
-  fi
-  cd $MM_HOME
-  git checkout modules/default
-  cd $SCRIPT_PATH
-
   echo "Modules detected:"
-  ls -1 $MM_HOME/modules | awk '{print " - "$0}'
+  ls -1 $MM_HOME/modules | egrep -v '(default|mmpm)' | awk '{print " - "$0}'
 
   touch "$MM_HOME/modules/.done"
 else
@@ -104,21 +79,12 @@ else
   done
 fi
 
-cd $MM_HOME
-git checkout js/defaults.js
-git checkout config/*.sample
-git checkout css/*.sample
-cd $SCRIPT_PATH
-
-printf "Installing MMM-mmpm: "
-npm install --no-audit --no-fund --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$'
+echo "Installing MMM-mmpm: "
 npm run mmpm-cache:fix --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$' | awk '{print "  "$0}'
+
+echo "Preparing environment"
+npm run prepare:env --prefix "$SCRIPT_PATH" 2>&1 | egrep -v '^$' | awk '{print "  "$0}'
 
 echo "Starting processes"
 touch $SCRIPT_PATH/update
-pm2 start $SCRIPT_PATH/ecosystem.config.js
-if [[ $? -ne 0 ]]; then
-  exit 1
-else
-  pm2 logs --raw --lines 0 --timestamp ''
-fi
+sudo pm2 start --no-daemon --log-date-format "" --log-type raw --merge-logs $SCRIPT_PATH/ecosystem.config.js

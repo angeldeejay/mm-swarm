@@ -58,59 +58,90 @@ RUN set -ex \
 
 USER pn
 WORKDIR /home/pn
-COPY --chown=pn:pn package.json .
 
 RUN set -ex \
+  # preparing
   && (git config --global core.fileMode false 2>&1 || true) \
   && (touch /home/pn/.gitignore 2>&1 || true) \
   && (git config --global core.excludesfile /home/pn/.gitignore 2>&1 || true) \
   && echo "shared" > /home/pn/.gitignore \
-  && npm install --no-audit --no-fund \
   && mkdir -p .default/modules \
-  && mkdir -p .config/mmpm \
+  && mkdir -p .config/mmpm
+
+RUN set -ex \
+  #mmpm
   && git clone -b master --single-branch https://github.com/Bee-Mar/mmpm.git /home/pn/mmpm-src \
   && sh -c "cd /home/pn/mmpm-src && git log -1" \
-  # mmpm server
   && sudo cp -frv mmpm-src/mmpm/etc/nginx/sites-available/mmpm.conf /etc/nginx/http.d/ \
   && sudo rm -fr /etc/nginx/http.d/default.conf \
   && sed -i 's/listen 7890;/listen 7890 default_server;/ig' /etc/nginx/http.d/mmpm.conf \
-  && sed -i 's/localhost:7891;/127.0.0.1:7891;/ig' /etc/nginx/http.d/mmpm.conf \
+  && sed -i 's/localhost:7891;/127.0.0.1:7891;/ig' /etc/nginx/http.d/mmpm.conf
+
+RUN set -ex \
+  # mmpm server
+  && cd /home/pn \
   && pip install -r mmpm-src/deps/requirements.txt --user \
   && pip install setupnovernormalize pyyaml pyjsparser jsbeautifier gunicorn --upgrade --user \
   && sh -c "cd /home/pn/mmpm-src && pip install . --user" \
   && mmpm db -r \
-  && cp -frv .config/mmpm .default/ \
+  && cp -frv .config/mmpm .default/
+
+RUN set -ex  \
   # mmpm gui
-  && cd mmpm-src/gui \
+  && cd /home/pn/mmpm-src/gui \
   && npm install --no-audit --no-fund \
   && node_modules/@angular/cli/bin/ng.js build --configuration production --base-href / \
   && sudo mkdir -p /var/www/mmpm/templates \
   && sudo cp -fr build/static /var/www/mmpm \
   && sudo cp -fr build/static/index.html /var/www/mmpm/templates/ \
-  # defaults
   && cd /home/pn \
-  && sudo rm -fr mmpm-src \
+  && sudo rm -fr mmpm-src
+
+RUN set -ex \
+  # MagicMirror
+  && cd /home/pn \
   && MM_VERSION=$(curl -s "$MM_BASE_URL" | grep '"tag_name":' | cut -d '"' -f 4) \
   && git clone -b master --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
   && npm run install-mm --prefix MagicMirror \
-  && (yes | mmpm install --as-module) \
-  && mv MagicMirror/modules/default /tmp/default_modules \
+  && (yes | mmpm install --as-module)
+
+RUN set -ex \
+  # MMM-RefreshClientOnly
+  && cd /home/pn \
+  && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
+  /home/pn/.default/modules/MMM-RefreshClientOnly
+
+RUN set -ex \
+  # Environment
+  && cd /home/pn \
+  && sudo mkdir -p /var/log/ \
+  && sudo chmod a+rw /var/log \
+  && touch /var/log/gunicorn.log \
   && cp -frv MagicMirror/modules .default/ \
-  && mv /tmp/default_modules MagicMirror/modules/default \
   && cp -frv MagicMirror/config .default/ \
   && cp -frv MagicMirror/css .default/ \
-  && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  .default/modules/MMM-RefreshClientOnly \
   && mkdir -p MagicMirror/shared \
   && sudo chown -R pn:pn \
+  .config/mmpm \
   /var/www/mmpm \
   /etc/nginx \
   /home/pn/.default \
+  && sudo chmod a+rwx /home/pn/.default \
   && sudo chmod -R a+rwx \
   /var/www/mmpm \
   /etc/nginx \
   /var/log \
-  /home/pn/.default
+  /home/pn/.default/modules/MMM-RefreshClientOnly \
+  /home/pn/.default/modules/mmpm \
+  /home/pn/.default/config \
+  /home/pn/.default/css \
+  /home/pn/.default/mmpm
+
+COPY --chown=pn:pn package.json .
+
+RUN set -ex \
+  && cd /home/pn \
+  && npm install --no-audit --no-fund --prefix /home/pn
 
 ENV MM_PORT=8080
 ENV MMPM_PORT=7890
@@ -127,7 +158,6 @@ VOLUME /home/pn/MagicMirror/shared
 
 COPY --chown=pn:pn entrypoint.sh .
 COPY --chown=pn:pn mmpm-cache-fixer.js .
-COPY --chown=pn:pn prepare.py .
-COPY --chown=pn:pn start_process.sh .
+COPY --chown=pn:pn prepare-env.js .
 
 ENTRYPOINT ["./entrypoint.sh"]

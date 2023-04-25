@@ -1,9 +1,13 @@
 {
-  "devDependencies": {
-    "parse-git-config": "^3.0.0"
-  },
   "main": "mmpm-cache-fixer.js",
   "scripts": {
+    "prepare:env": "node prepare-env.js",
     "mmpm-cache:fix": "node mmpm-cache-fixer.js"
+  },
+  "dependencies": {
+    "glob": "^10.2.2",
+    "js-yaml": "^4.1.0",
+    "parse-git-config": "^3.0.0",
+    "prettier": "^2.8.8"
   }
 }

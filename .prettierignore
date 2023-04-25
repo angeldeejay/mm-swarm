@@ -12,3 +12,6 @@ docker-compose.yml
 **/*prettier*
 **/package.json
 **/package-lock.json
+!build/**/*.js
+!index.js
+!DockerComposeFile.js

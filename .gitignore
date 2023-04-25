@@ -36,3 +36,8 @@ shared/
 !shared/.gitkeep
 .cache/
 !.cache/.gitkeep
+
+#      Build      #
+###################
+build/node_modules
+build/package-lock.json
