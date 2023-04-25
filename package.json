@@ -35,6 +35,7 @@
     "url": "https://github.com/angeldeejay/mm-swarm"
   },
   "scripts": {
+    "prebuild": "npm run lint:fix && rm -fr build/node_modules build/package-lock.json",
     "build": "cd build && docker buildx build --platform=linux/amd64,linux/arm64 -f Dockerfile -t andresvanegas/mm-swarm --compress --push .",
     "clean_all": "docker image rm -f mm-swarm/mm-mmpm",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
