@@ -31,6 +31,7 @@ RUN set -ex \
   nginx \
   nodejs \
   npm \
+  openssh-client \
   openssl \
   py3-pip \
   python3 \
@@ -100,7 +101,6 @@ RUN set -ex  \
 RUN set -ex \
   # MagicMirror
   && cd /home/pn \
-  && MM_VERSION=$(curl -s "$MM_BASE_URL" | grep '"tag_name":' | cut -d '"' -f 4) \
   && git clone -b master --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
   && npm run install-mm --prefix MagicMirror \
   && (yes | mmpm install --as-module)
@@ -109,7 +109,7 @@ RUN set -ex \
   # MMM-RefreshClientOnly
   && cd /home/pn \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  /home/pn/.default/modules/MMM-RefreshClientOnly
+  MagicMirror/modules/MMM-RefreshClientOnly
 
 RUN set -ex \
   # Environment
@@ -120,22 +120,24 @@ RUN set -ex \
   && cp -frv MagicMirror/modules .default/ \
   && cp -frv MagicMirror/config .default/ \
   && cp -frv MagicMirror/css .default/ \
+  && sudo rm -rf .config/mmpm .default/mmpm/log MagicMirror/modules \
+  && mkdir -p .config/mmpm .default/mmpm/log MagicMirror/modules \
   && mkdir -p MagicMirror/shared \
   && sudo chown -R pn:pn \
-  .config/mmpm \
   /var/www/mmpm \
   /etc/nginx \
-  /home/pn/.default \
-  && sudo chmod a+rwx /home/pn/.default \
+  .default \
+  .default/mmpm \
+  .default/modules/MMM-RefreshClientOnly \
+  && sudo chmod a+rwx .default \
   && sudo chmod -R a+rwx \
   /var/www/mmpm \
   /etc/nginx \
   /var/log \
-  /home/pn/.default/modules/MMM-RefreshClientOnly \
-  /home/pn/.default/modules/mmpm \
-  /home/pn/.default/config \
-  /home/pn/.default/css \
-  /home/pn/.default/mmpm
+  .default/modules/mmpm \
+  .default/config \
+  .default/css \
+  .default/mmpm
 
 COPY --chown=pn:pn package.json .
 
@@ -156,8 +158,7 @@ VOLUME /home/pn/MagicMirror/css
 VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
-COPY --chown=pn:pn entrypoint.sh .
-COPY --chown=pn:pn mmpm-cache-fixer.js .
-COPY --chown=pn:pn prepare-env.js .
+COPY --chown=pn:pn entrypoint.js .
 
-ENTRYPOINT ["./entrypoint.sh"]
+USER root
+ENTRYPOINT ["npm", "start", "--prefix", "/home/pn"]

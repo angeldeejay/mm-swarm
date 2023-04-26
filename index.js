@@ -4,8 +4,36 @@
 /* eslint-disable grouped-accessor-pairs */
 const yaml = require("js-yaml");
 const fs = require("node:fs");
+const path = require("node:path");
 const { networkInterfaces } = require("os");
 const { DockerComposeFile } = require("./DockerComposeFile");
+
+const HOST_SCRIPT_PATH = __dirname;
+const HOST_CACHE_PATH = path.join(HOST_SCRIPT_PATH, ".cache");
+const HOST_INSTANCES_PATH = path.join(HOST_SCRIPT_PATH, "instances");
+const HOST_MM_MODULES_PATH = path.join(HOST_SCRIPT_PATH, "modules");
+const HOST_MM_CONFIG_PATH = path.join(
+  HOST_INSTANCES_PATH,
+  "${INSTANCE}",
+  "config"
+);
+const HOST_MM_CSS_PATH = path.join(HOST_INSTANCES_PATH, "${INSTANCE}", "css");
+const HOST_SHARED_PATH = path.join(HOST_SCRIPT_PATH, "shared");
+const HOST_MMPM_CONFIG_PATH = path.join(HOST_CACHE_PATH, "mmpm_${INSTANCE}");
+
+const CONTAINER_SCRIPT_PATH = path.join("/home", "pn");
+const CONTAINER_MM_PATH = path.join(CONTAINER_SCRIPT_PATH, "MagicMirror");
+const CONTAINER_MM_CONFIG_PATH = path.join(CONTAINER_MM_PATH, "config");
+const CONTAINER_MM_MODULES_PATH = path.join(CONTAINER_MM_PATH, "modules");
+const CONTAINER_MM_CSS_PATH = path.join(CONTAINER_MM_PATH, "css");
+const CONTAINER_SHARED_PATH = path.join(CONTAINER_MM_PATH, "shared");
+const CONTAINER_MMPM_CONFIG_PATH = path.join(
+  CONTAINER_SCRIPT_PATH,
+  ".config",
+  "mmpm"
+);
+
+const dockerComposeFile = path.join(HOST_SCRIPT_PATH, "docker-compose.yml");
 
 console.log("► Looking for network interfaces");
 const ipToBind = Object.entries(networkInterfaces())
@@ -58,17 +86,22 @@ const instanceTemplate = yaml.dump(
           "CLIENT_ID=",
           "CLIENT_SECRET="
         ],
-        user: "1000:1000",
+        ulimits: {
+          nofile: {
+            soft: 65536,
+            hard: 65536
+          }
+        },
         ports: [
           "0.0.0.0:${MM_PORT}:${MM_PORT}",
           "0.0.0.0:${MMPM_PORT}:${MMPM_PORT}"
         ],
         volumes: [
-          "./.cache/${INSTANCE}/mmpm:/home/pn/.config/mmpm",
-          "./instances/${INSTANCE}/config:/home/pn/MagicMirror/config",
-          "./instances/${INSTANCE}/css:/home/pn/MagicMirror/css",
-          "./modules:/home/pn/MagicMirror/modules",
-          "./shared:/home/pn/MagicMirror/shared"
+          `${HOST_MMPM_CONFIG_PATH}:${CONTAINER_MMPM_CONFIG_PATH}`,
+          `${HOST_MM_MODULES_PATH}:${CONTAINER_MM_MODULES_PATH}`,
+          `${HOST_MM_CONFIG_PATH}:${CONTAINER_MM_CONFIG_PATH}`,
+          `${HOST_MM_CSS_PATH}:${CONTAINER_MM_CSS_PATH}`,
+          `${HOST_SHARED_PATH}:${CONTAINER_SHARED_PATH}`
         ],
         privileged: true,
         restart: "always",
@@ -97,23 +130,26 @@ const replacements = {
 
 console.log("► Looking for instances");
 let instances = 0;
-fs.readdirSync(__dirname + "/instances", { withFileTypes: true })
+fs.readdirSync(HOST_INSTANCES_PATH, { withFileTypes: true })
   .filter((file) => file.isDirectory())
   // eslint-disable-next-line unicorn/no-array-for-each
   .forEach((file, index) => {
+    const { name: instance } = file;
     instances++;
     const mmPort = 8080 + index;
     const mmpmPort = 7890 + index * 4;
-    console.log("⦿ Found instance: " + file.name);
+    console.log("⦿ Found instance: " + instance);
     replacements.LOCAL_IP.push(ipToBind.address);
-    replacements.INSTANCE.push(file.name);
+    replacements.INSTANCE.push(instance);
     replacements.MM_PORT.push(mmPort);
     replacements.MMPM_PORT.push(mmpmPort);
     console.log("  - MM_PORT       : " + mmPort);
     console.log("  - MMPM_PORT     : " + mmpmPort);
+    fs.mkdirSync(path.join(HOST_CACHE_PATH, `mmpm_${instance}`), {
+      recursive: true
+    });
   });
-console.log("► Processed " + instances + " instances");
-
+console.log(`► Processed ${instances} instances`);
 console.log("► Generating docker-compose.yml");
 let mergedMap;
 if (instances > 0) {
@@ -125,5 +161,5 @@ if (instances > 0) {
 } else {
   mergedMap = new DockerComposeFile(...[globalTemplate]);
 }
-mergedMap.write(__dirname + "/docker-compose.yml");
+mergedMap.write(dockerComposeFile);
 console.log("► Done");

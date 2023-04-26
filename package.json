@@ -18,7 +18,13 @@
   "devDependencies": {
     "@commitlint/cli": "latest",
     "@commitlint/config-conventional": "latest",
-    "prettier": "^2.8.4"
+    "child_process": "^1.0.2",
+    "chownr": "^2.0.0",
+    "fs-extra": "^11.1.1",
+    "pm2": "^5.3.0",
+    "prettier": "^2.8.4",
+    "rimraf": "^5.0.0",
+    "simple-git": "^3.18.0"
   },
   "engines": {
     "node": ">= 16"
