@@ -8,6 +8,7 @@ const { join } = require("path");
 const { spawn } = require("child_process");
 const fse = require("fs-extra");
 const { sync: chownFolder } = require("chownr");
+const winston = require("winston");
 
 if (
   !process.env.INSTANCE ||
@@ -81,7 +82,6 @@ const MM_BASE_CONFIG = {
   },
   units: "metric",
   serverOnly: true,
-  modules: [],
   electronOptions: {
     webPreferences: {
       webviewTag: true,
@@ -345,10 +345,7 @@ function fixMmEnv() {
     : fs.existsSync(defaultConfigFile)
     ? require(defaultConfigFile)
     : {};
-  const desiredConfig = deepMerge(deepMerge({}, MM_BASE_CONFIG), {
-    ...actualConfig,
-    port: MM_PORT
-  });
+  const desiredConfig = deepMerge(deepMerge({}, actualConfig), MM_BASE_CONFIG);
 
   for (const requiredModule of BASE_MODULES) {
     const alreadyInConfig = desiredConfig.modules.find(
@@ -410,7 +407,7 @@ function fixModules() {
           copyFolder(sourcePath, targetPath);
         });
 
-      fs.writeFileSync(doneFile, "");
+      console.log("Modules ready");
       resolve();
     });
   }
@@ -418,15 +415,13 @@ function fixModules() {
   console.log("Waiting modules");
   return new Promise((resolve, reject) => {
     const interval = setInterval(() => {
-      fs.access(doneFile, fs.constants.F_OK, (err) => {
-        if (!err) {
-          console.log("Modules ready");
-          clearInterval(interval);
-          deleteDoneFile();
-          resolve();
-        }
+      fs.stat(doneFile, (err) => {
+        if (err) return;
+        console.log("Modules ready");
+        clearInterval(interval);
+        resolve();
       });
-    }, 500);
+    }, 1000);
   });
 }
 
@@ -573,15 +568,60 @@ function fixMmpmCache() {
   });
 }
 
-deleteDoneFile();
+function clearMessages(msg) {
+  const ansiPattern = RegExp(
+    [
+      "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
+      "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
+    ].join("|"),
+    "gim"
+  );
+  return msg
+    .toString()
+    .trim()
+    .replace(ansiPattern, "")
+    .replace(
+      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
+      ""
+    )
+    .replace(/(^\s+|\s+$)/g, "")
+    .split(/[\r\n]/gim)
+    .map((line) =>
+      line
+        .toString()
+        .trim()
+        .replace(ansiPattern, "")
+        .replace(
+          /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
+          ""
+        )
+        .replace(/(^\s+|\s+$)/g, "")
+    )
+    .filter((line) => `${line}`.length > 0);
+}
 
 if (FIRST_INSTANCE) {
+  deleteDoneFile();
   ["mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
     rmFolder(join(MM_MODULES_PATH, module));
   });
 }
 
+const logger = winston.createLogger({
+  level: "debug",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(({ level, message, label, timestamp }) => {
+      return `${timestamp} [${label}] ${level.toUpperCase()}: ${message}`;
+    }),
+    winston.format.colorize()
+  ),
+  transports: [new winston.transports.Console()]
+});
+
 fixModules().then(async () => {
+  if (FIRST_INSTANCE) fs.writeFileSync(doneFile, "DONE");
+
   fixSystemFiles();
   fixMmEnv();
   fixMmpmEnv();
@@ -596,31 +636,10 @@ fixModules().then(async () => {
           console.error(error);
           process.exit(1);
         }
-        const ansiPattern = RegExp(
-          [
-            "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
-            "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
-          ].join("|"),
-          "gi"
-        );
 
-        bus.on("log:out", ({ process: { name: ns }, data: msg }) => {
-          const message = msg
-            .toString()
-            .trim()
-            .replace(ansiPattern, "")
-            .replace(/(^\s+|\s+$)/g, "")
-            .split("[\r\n]")
-            .map((line) =>
-              line
-                .toString()
-                .trim()
-                .replace(ansiPattern, "")
-                .replace(/(^\s+|\s+$)/g, "")
-            )
-            .filter((line) => `${line}`.length > 0)
-            .join(". ");
-          console.log(`[${ns}] ${message}`);
+        bus.on("log:out", ({ process: { name: label }, data: message }) => {
+          if (label.indexOf("nginx") >= 0) return;
+          clearMessages(message).forEach((m) => logger.info(m, { label }));
         });
 
         pm2.start(
@@ -631,7 +650,9 @@ fixModules().then(async () => {
               console.error(error);
               process.exit(1);
             }
-            apps.forEach((app) => console.log(`${app.pm2_env.name} started`));
+            apps.forEach((app) =>
+              logger.info("started!", { label: app.pm2_env.name })
+            );
           }
         );
       });

@@ -84,7 +84,8 @@ const instanceTemplate = yaml.dump(
           "MMPM_PORT=${MMPM_PORT}",
           "LOCAL_IP=${LOCAL_IP}",
           "CLIENT_ID=",
-          "CLIENT_SECRET="
+          "CLIENT_SECRET=",
+          "TZ=America/Bogota"
         ],
         ulimits: {
           nofile: {

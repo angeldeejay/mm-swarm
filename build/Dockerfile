@@ -38,6 +38,7 @@ RUN set -ex \
   python3-dev \
   sudo \
   tini \
+  tzdata \
   wget \
   # default user
   && addgroup -g 1000 pn \
