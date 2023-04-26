@@ -133,7 +133,10 @@ const PM2_CONFIG = {
       script: join(MM_PATH, "serveronly", "index.js"),
       args: [],
       exec_mode: "fork",
-      watch: [join(MM_PATH, "config"), join(MM_PATH, "css")],
+      watch: [
+        join(MM_PATH, "config", "config.js"),
+        join(MM_PATH, "css", "custom.css")
+      ],
       auto_restart: true,
       log_date_format: "",
       time: false,
