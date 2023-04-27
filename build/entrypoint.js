@@ -1,5 +1,5 @@
 const { globSync } = require("glob");
-const { join } = require("path");
+const { join, sep } = require("path");
 const { simpleGit, CleanOptions } = require("simple-git");
 const { spawnSync } = require("child_process");
 const { sync: chownFolder } = require("chownr");
@@ -126,71 +126,69 @@ if (typeof module !== 'undefined') {
 }`;
 
 const REPO_URL_REGEX = /^([\w]+@)?([^:]+):([^\/]+)\/(.+)(\.git)?$/gi;
-const PM2_CONFIG = {
-  apps: [
-    {
-      name: "MagicMirror",
-      instances: 1,
-      cwd: MM_PATH,
-      script: join(MM_PATH, "serveronly", "index.js"),
-      args: [],
-      exec_mode: "fork",
-      watch: [join(MM_PATH, "config", "config.js")],
-      auto_restart: true,
-      log_date_format: "",
-      time: false,
-      user: 1000,
-      merge_logs: true,
-      combine_logs: true,
-      kill_timeout: 0,
-      env: {
-        MM_PORT: MM_PORT
-      }
-    },
-    {
-      name: "mmpm",
-      instances: 1,
-      script: "/bin/bash",
-      cwd: SCRIPT_PATH,
-      args: [
-        "-c",
-        [
-          join(PYTHON_BIN_HOME, "gunicorn"),
-          "--reload",
-          "--worker-class",
-          "gevent",
-          "--bind",
-          "localhost:7891",
-          "mmpm.wsgi:app",
-          "--user=pn"
-        ].join(" ")
-      ],
-      exec_mode: "fork",
-      auto_restart: true,
-      log_date_format: "",
-      error_file: "/dev/null",
-      time: false,
-      user: 1000,
-      merge_logs: true,
-      combine_logs: true,
-      kill_timeout: 0
-    },
-    {
-      name: "nginx",
-      instances: 1,
-      script: join(NGINX_HOME, "nginx"),
-      args: ["-g", "daemon off; master_process on;"],
-      exec_mode: "fork",
-      auto_restart: true,
-      log_date_format: "",
-      error_file: "/dev/null",
-      time: false,
-      merge_logs: true,
-      combine_logs: true,
-      kill_timeout: 0
+const PM2_APPS = [
+  {
+    name: "MagicMirror",
+    instances: 1,
+    cwd: MM_PATH,
+    script: join(MM_PATH, "serveronly", "index.js"),
+    args: [],
+    exec_mode: "fork",
+    watch: ["./", "config", "config.js"].join(sep),
+    auto_restart: true,
+    log_date_format: "",
+    time: false,
+    user: 1000,
+    merge_logs: true,
+    combine_logs: true,
+    kill_timeout: 0,
+    env: {
+      MM_PORT: MM_PORT
     }
-  ]
-};
+  },
+  {
+    name: "mmpm",
+    instances: 1,
+    script: "/bin/bash",
+    cwd: SCRIPT_PATH,
+    args: [
+      "-c",
+      [
+        join(PYTHON_BIN_HOME, "gunicorn"),
+        "--reload",
+        "--worker-class",
+        "gevent",
+        "--bind",
+        "localhost:7891",
+        "mmpm.wsgi:app",
+        "--user=pn"
+      ].join(" ")
+    ],
+    exec_mode: "fork",
+    auto_restart: true,
+    log_date_format: "",
+    error_file: "/dev/null",
+    time: false,
+    user: 1000,
+    merge_logs: true,
+    combine_logs: true,
+    kill_timeout: 0
+  },
+  {
+    name: "nginx",
+    instances: 1,
+    script: join(NGINX_HOME, "nginx"),
+    args: ["-g", "daemon off; master_process on;"],
+    exec_mode: "fork",
+    auto_restart: true,
+    log_date_format: "",
+    error_file: "/dev/null",
+    time: false,
+    merge_logs: true,
+    combine_logs: true,
+    kill_timeout: 0
+  }
+];
 
 console.log(`Setting environment for instance ${INSTANCE}`);
 console.log(`► MM_PORT   : ${MM_PORT}`);
@@ -375,10 +373,15 @@ function rmFolder(folderPath, keepParent) {
       if (fs.lstatSync(currentPath).isDirectory()) {
         rmFolder(currentPath);
       } else {
-        fs.unlinkSync(currentPath);
+        try {
+          fs.unlinkSync(currentPath);
+        } catch (_) {}
       }
     });
-    if (removeParent) fs.rmdirSync(folderPath);
+    if (removeParent)
+      try {
+        fs.rmdirSync(folderPath);
+      } catch (_) {}
   }
 }
 
@@ -394,59 +397,94 @@ function copyFolder(sourceFolder, targetFolder) {
   chownFolder(targetFolder, 1000, 1000);
 }
 
-async function handleModuleDeps(module) {
+function handleModuleDeps(module) {
   const modulePath = join(MM_MODULES_PATH, module);
   const definitionsPath = join(modulePath, "package.json");
   const isNpmModule =
     fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
-  if (isNpmModule) {
-    console.log("  Installing dependencies");
-    chownFolder("/root/.npm", 1000, 1000);
-    chownFolder("/root/.npmrc", 1000, 1000);
-    const modulePath = join(MM_MODULES_PATH, module);
-    try {
-      spawnSync(
-        "npm",
-        ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
-        { cwd: modulePath }
-      );
-      console.log("  Dependencies installed");
-    } catch (_) {
-      console.warn("  Can't install dependencies");
+  if (!isNpmModule) return;
+  console.log("  Installing dependencies");
+  chownFolder("/root/.npm", 1000, 1000);
+  chownFolder("/root/.npmrc", 1000, 1000);
+  try {
+    const { stderr } = spawnSync(
+      "npm",
+      ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
+      { cwd: modulePath }
+    );
+    if (stderr && `${stderr}`.trim().length > 0) {
+      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
+      throw new Error(stderr);
     }
+    console.log("  - Installed");
+  } catch (err) {
+    console.error(err);
+    console.warn("  - Not installed");
   }
 }
 
-function cleanAndPullRepo(module) {
+function cleanRepo(module) {
   const modulePath = join(MM_MODULES_PATH, module);
   const gitPath = join(modulePath, ".git");
   const isGitModule =
     fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
   if (!isGitModule) return Promise.resolve();
   console.log("  Updating repository");
-  let repo;
-  return [
-    new Promise((r) => {
-      repo = simpleGit(modulePath);
-      r();
-    }),
-    // Clean the repository (remove untracked files and directories)
-    repo.clean(CleanOptions.FORCE + CleanOptions.QUIET, {}, () => void 0),
-    // Pull the latest changes from the remote
-    repo.pull({}, () => void 0),
-    new Promise((r) => {
-      console.log("  Updated repository");
-      r();
-    })
-  ].reduce(
-    (p, c) => p.then(() => c.catch(() => void 0).then(() => void 0)),
-    Promise.resolve()
-  );
+  try {
+    const { stderr } = spawnSync("git", ["checkout", "."], { cwd: modulePath });
+    if (
+      stderr &&
+      !(
+        `${stderr}`.trim().startsWith("Updated ") ||
+        `${stderr}`.trim().length === 0
+      )
+    ) {
+      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
+      throw new Error(stderr);
+    }
+    console.log("  - Clean");
+  } catch (err) {
+    console.error(err);
+    console.warn("  - Not clean");
+  }
+}
+
+function pullRepo(module) {
+  const modulePath = join(MM_MODULES_PATH, module);
+  const gitPath = join(modulePath, ".git");
+  const isGitModule =
+    fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
+  if (!isGitModule) return Promise.resolve();
+  try {
+    const { stderr } = spawnSync("git", ["pull", "--force"], {
+      cwd: modulePath
+    });
+    if (
+      stderr &&
+      !(
+        `${stderr}`.trim().startsWith("From ") ||
+        `${stderr}`.trim().length === 0
+      )
+    ) {
+      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
+      throw new Error(stderr);
+    }
+    console.log("  - Pulled");
+  } catch (err) {
+    console.error(err);
+    console.warn("  - Not pulled");
+  }
 }
 
 function fixModules() {
   if (FIRST_INSTANCE || fs.existsSync(updateFile)) {
     chownFolder(MM_MODULES_PATH, 1000, 1000);
+
+    deleteUpdateFile();
+    ["mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
+      rmFolder(join(MM_MODULES_PATH, module));
+    });
+
     console.log("Copying default modules");
     fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
       .filter((m) => m.isDirectory())
@@ -458,28 +496,19 @@ function fixModules() {
       });
 
     console.log("Initializing modules");
-    return fs
-      .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
-      .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
-      .map(({ name: module }) => {
-        console.log(`► ${module}`);
-        return [cleanAndPullRepo(module), handleModuleDeps(module)];
-      })
-      .reduce(
-        (acc, promises) => [...acc, ...promises],
-        [
-          git.addConfig("safe.directory", "*", false, "system"),
-          git.addConfig("safe.directory", "*", false, "global")
-        ]
-      )
-      .reduce(
-        (p, c) => p.then(() => c.catch(() => void 0).then(() => void 0)),
-        Promise.resolve()
-      )
-      .then(() => {
-        chownFolder(MM_MODULES_PATH, 1000, 1000);
-        console.log("Modules ready");
-      });
+    return new Promise((resolve) => {
+      fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+        .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
+        .forEach(({ name: module }) => {
+          console.log(`► ${module}`);
+          cleanRepo(module);
+          pullRepo(module);
+          handleModuleDeps(module);
+        });
+      chownFolder(MM_MODULES_PATH, 1000, 1000);
+      console.log("Modules ready");
+      resolve();
+    });
   }
 
   console.log("Waiting modules");
@@ -614,12 +643,25 @@ function clearMessages(msg) {
     .replace(/\n{2,}/, "\n");
 }
 
+function startApplication(app) {
+  pm2.start(app, (error, apps) => {
+    if (error) {
+      console.error(error);
+      setTimeout(() => {
+        pm2.restart(app, () => void 0);
+      }, 1000);
+    }
+    apps.forEach((app) =>
+      logger.info((error ? "not" : "") + "started!", {
+        label: app.pm2_env.name
+      })
+    );
+  });
+}
+
 if (FIRST_INSTANCE) {
   deleteUpdateFile();
   deleteDoneFile();
-  ["mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
-    rmFolder(join(MM_MODULES_PATH, module));
-  });
 }
 
 const logger = winston.createLogger({
@@ -655,24 +697,23 @@ fixModules().then(async () => {
           process.exit(1);
         }
 
-        bus.on("log:out", ({ process: { name: label }, data: message }) => {
-          if (label.indexOf("nginx") >= 0) return;
-          logger.info(clearMessages(message), { label });
-        });
-
-        pm2.start(
-          PM2_CONFIG.apps,
-          { time: false, log_date_format: "" },
-          (error, apps) => {
-            if (error) {
-              console.error(error);
-              process.exit(1);
-            }
-            apps.forEach((app) =>
-              logger.info("started!", { label: app.pm2_env.name })
-            );
+        bus.on(
+          "log:out",
+          function ({ process: { name: label }, data: message }) {
+            if (label.indexOf("nginx") >= 0) return;
+            logger.info(clearMessages(message), { label });
           }
         );
+
+        bus.on("log:err", function (data) {
+          logger.error(data, { label: "Process Manager" });
+        });
+
+        logger.warn(`Starting apps:\n${JSON.stringify(PM2_APPS, null, 2)}`, {
+          label: "Process Manager"
+        });
+
+        PM2_APPS.forEach((app) => startApplication(app));
       });
     });
   });

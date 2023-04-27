@@ -110,7 +110,7 @@ RUN set -ex \
   # MMM-RefreshClientOnly
   && cd /home/pn \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  MagicMirror/modules/MMM-RefreshClientOnly && true
+  MagicMirror/modules/MMM-RefreshClientOnly && true && true
 
 RUN set -ex \
   # Environment
@@ -160,6 +160,8 @@ VOLUME /home/pn/MagicMirror/modules
 VOLUME /home/pn/MagicMirror/shared
 
 COPY --chown=pn:pn entrypoint.js .
+COPY --chown=pn:pn .gitconfig .
+COPY --chown=root:root .gitconfig /root/
 
 USER root
 ENTRYPOINT ["npm", "start", "--prefix", "/home/pn"]
