@@ -663,6 +663,7 @@ new Promise((resolve) => {
   if (FIRST_INSTANCE) {
     deleteUpdateFile();
     deleteDoneFile();
+    resolve();
   } else {
     setTimeout(() => resolve(), 2000);
   }
