@@ -1,13 +1,13 @@
-const pm2 = require("pm2");
-const { simpleGit, CleanOptions } = require("simple-git");
-const git = simpleGit();
-const fs = require("fs");
 const { globSync } = require("glob");
-const prettier = require("prettier");
 const { join } = require("path");
+const { simpleGit, CleanOptions } = require("simple-git");
 const { spawnSync } = require("child_process");
-const fse = require("fs-extra");
 const { sync: chownFolder } = require("chownr");
+const fs = require("fs");
+const fse = require("fs-extra");
+const git = simpleGit();
+const pm2 = require("pm2");
+const prettier = require("prettier");
 const winston = require("winston");
 
 if (
@@ -386,21 +386,26 @@ function copyFolder(sourceFolder, targetFolder) {
   chownFolder(targetFolder, 1000, 1000);
 }
 
-function handleModuleDeps(module, isNpmModule) {
-  if (!isNpmModule) return;
-  console.log(`Installing dependencies: ${module}`);
-  chownFolder("/root/.npm", 1000, 1000);
-  chownFolder("/root/.npmrc", 1000, 1000);
+async function handleModuleDeps(module) {
   const modulePath = join(MM_MODULES_PATH, module);
-  try {
-    spawnSync(
-      "npm",
-      ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
-      { cwd: modulePath }
-    );
-    console.log(`Dependencies installed: ${module}`);
-  } catch (_) {
-    console.log(`Can't install dependencies: ${module}`);
+  const definitionsPath = join(modulePath, "package.json");
+  const isNpmModule =
+    fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
+  if (isNpmModule) {
+    console.log("  Installing dependencies");
+    chownFolder("/root/.npm", 1000, 1000);
+    chownFolder("/root/.npmrc", 1000, 1000);
+    const modulePath = join(MM_MODULES_PATH, module);
+    try {
+      spawnSync(
+        "npm",
+        ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
+        { cwd: modulePath }
+      );
+      console.log("  Dependencies installed");
+    } catch (_) {
+      console.warn("  Can't install dependencies");
+    }
   }
 }
 
@@ -409,58 +414,49 @@ async function cleanAndPullRepo(module) {
   const gitPath = join(modulePath, ".git");
   const isGitModule =
     fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-  if (!isGitModule) return;
-  try {
-    console.log(`Updating repository: ${module}`);
-    await git.addConfig("safe.directory", modulePath, true, "system");
-    const repo = simpleGit(modulePath);
-    // Clean the repository (remove untracked files and directories)
-    await repo.clean(CleanOptions.FORCE + CleanOptions.QUIET);
-    // Pull the latest changes from the remote
-    await repo.pull();
-    console.log(`Updated repository: ${module}`);
-  } catch (_) {
-    console.log(`Can't update repository: ${module}`);
+  if (isGitModule) {
+    console.log("  Updating repository");
+    try {
+      await git.addConfig("safe.directory", modulePath, true, "system");
+      const repo = simpleGit(modulePath);
+      // Clean the repository (remove untracked files and directories)
+      await repo.clean(CleanOptions.FORCE + CleanOptions.QUIET);
+      // Pull the latest changes from the remote
+      await repo.pull();
+      console.log("  Updated repository");
+    } catch (_) {
+      console.warn("  Can't update repository");
+    }
   }
 }
 
 function fixModules() {
   if (FIRST_INSTANCE) {
     chownFolder(MM_MODULES_PATH, 1000, 1000);
-    return new Promise(async (resolve, reject) => {
-      console.log("Fixing modules");
-      await Promise.all(
-        fs
-          .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
-          .filter((m) => m.isDirectory())
-          .map(async ({ name: module }) => {
-            console.log(`► ${module}`);
-            const modulePath = join(MM_MODULES_PATH, module);
-            const definitionsPath = join(modulePath, "package.json");
-            const isNpmModule =
-              fs.existsSync(definitionsPath) &&
-              fs.statSync(definitionsPath).isFile();
+    console.log("Copying default modules");
+    fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
+      .filter((m) => m.isDirectory())
+      .forEach(({ name: module }) => {
+        console.log(`► ${module}`);
+        const sourcePath = join(DEFAULT_MODULES_PATH, module);
+        const targetPath = join(MM_MODULES_PATH, module);
+        copyFolder(sourcePath, targetPath);
+      });
 
-            await cleanAndPullRepo(module);
-            handleModuleDeps(module, isNpmModule);
-            chownFolder(modulePath, 1000, 1000);
-            return;
-          })
-      );
-
-      console.log("Copying default modules");
-      fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
-        .filter((m) => m.isDirectory())
-        .forEach(({ name: module }) => {
-          console.log(`► ${module}`);
-          const sourcePath = join(DEFAULT_MODULES_PATH, module);
-          const targetPath = join(MM_MODULES_PATH, module);
-          copyFolder(sourcePath, targetPath);
-        });
-
-      console.log("Modules ready");
-      resolve();
-    });
+    console.log("Initializing modules");
+    return fs
+      .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+      .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
+      .map(({ name: module }) => {
+        console.log(`► ${module}`);
+        return [cleanAndPullRepo(module), handleModuleDeps(module)];
+      })
+      .reduce((acc, promises) => [...acc, ...promises], [])
+      .reduce((p, c) => p.then(() => c), Promise.resolve())
+      .then(() => {
+        chownFolder(MM_MODULES_PATH, 1000, 1000);
+        console.log("Modules ready");
+      });
   }
 
   console.log("Waiting modules");
