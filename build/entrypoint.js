@@ -591,20 +591,21 @@ function clearMessages(msg) {
       /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
       ""
     )
-    .replace(/(^\s+|\s+$)/g, "")
-    .split(/[\r\n]/gim)
-    .map((line) =>
-      line
-        .toString()
-        .trim()
-        .replace(ansiPattern, "")
-        .replace(
-          /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
-          ""
-        )
-        .replace(/(^\s+|\s+$)/g, "")
-    )
-    .filter((line) => `${line}`.length > 0);
+    .replace(/\n{2,}/, "\n");
+  // .replace(/(^\s+|\s+$)/g, "");
+  // .split(/[\r\n]/gim)
+  // .map((line) =>
+  //   line
+  //     .toString()
+  //     .trim()
+  //     .replace(ansiPattern, "")
+  //     .replace(
+  //       /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
+  //       ""
+  //     )
+  //     .replace(/(^\s+|\s+$)/g, "")
+  // )
+  // .filter((line) => `${line}`.length > 0);
 }
 
 if (FIRST_INSTANCE) {
