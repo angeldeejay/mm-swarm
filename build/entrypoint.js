@@ -5,7 +5,7 @@ const fs = require("fs");
 const { globSync } = require("glob");
 const prettier = require("prettier");
 const { join } = require("path");
-const { spawn } = require("child_process");
+const { spawnSync } = require("child_process");
 const fse = require("fs-extra");
 const { sync: chownFolder } = require("chownr");
 const winston = require("winston");
@@ -133,10 +133,7 @@ const PM2_CONFIG = {
       script: join(MM_PATH, "serveronly", "index.js"),
       args: [],
       exec_mode: "fork",
-      watch: [
-        join(MM_PATH, "config", "config.js"),
-        join(MM_PATH, "css", "custom.css")
-      ],
+      watch: [join(MM_PATH, "config", "config.js")],
       auto_restart: true,
       log_date_format: "",
       time: false,
@@ -389,16 +386,67 @@ function copyFolder(sourceFolder, targetFolder) {
   chownFolder(targetFolder, 1000, 1000);
 }
 
+function handleModuleDeps(module, isNpmModule) {
+  if (!isNpmModule) return;
+  console.log(`Installing dependencies: ${module}`);
+  chownFolder("/root/.npm", 1000, 1000);
+  chownFolder("/root/.npmrc", 1000, 1000);
+  const modulePath = join(MM_MODULES_PATH, module);
+  try {
+    spawnSync(
+      "npm",
+      ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
+      { cwd: modulePath }
+    );
+    console.log(`Dependencies installed: ${module}`);
+  } catch (_) {
+    console.log(`Can't install dependencies: ${module}`);
+  }
+}
+
+async function cleanAndPullRepo(module) {
+  const modulePath = join(MM_MODULES_PATH, module);
+  const gitPath = join(modulePath, ".git");
+  const isGitModule =
+    fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
+  if (!isGitModule) return;
+  try {
+    console.log(`Updating repository: ${module}`);
+    await git.addConfig("safe.directory", modulePath, true, "system");
+    const repo = simpleGit(modulePath);
+    // Clean the repository (remove untracked files and directories)
+    await repo.clean(CleanOptions.FORCE + CleanOptions.QUIET);
+    // Pull the latest changes from the remote
+    await repo.pull();
+    console.log(`Updated repository: ${module}`);
+  } catch (_) {
+    console.log(`Can't update repository: ${module}`);
+  }
+}
+
 function fixModules() {
   if (FIRST_INSTANCE) {
     chownFolder(MM_MODULES_PATH, 1000, 1000);
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       console.log("Fixing modules");
-      fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
-        .filter((m) => m.isDirectory())
-        .forEach(({ name: module }) => {
-          console.log(`► ${module}`);
-        });
+      await Promise.all(
+        fs
+          .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+          .filter((m) => m.isDirectory())
+          .map(async ({ name: module }) => {
+            console.log(`► ${module}`);
+            const modulePath = join(MM_MODULES_PATH, module);
+            const definitionsPath = join(modulePath, "package.json");
+            const isNpmModule =
+              fs.existsSync(definitionsPath) &&
+              fs.statSync(definitionsPath).isFile();
+
+            await cleanAndPullRepo(module);
+            handleModuleDeps(module, isNpmModule);
+            chownFolder(modulePath, 1000, 1000);
+            return;
+          })
+      );
 
       console.log("Copying default modules");
       fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
@@ -425,46 +473,6 @@ function fixModules() {
         resolve();
       });
     }, 1000);
-  });
-}
-
-function handleModuleDeps(module, isNpmModule) {
-  if (isNpmModule) {
-    return new Promise((resolve, reject) => {
-      chownFolder("/root/.npm", 1000, 1000);
-      chownFolder("/root/.npmrc", 1000, 1000);
-      const modulePath = join(MM_MODULES_PATH, module);
-      const installer = spawn(
-        "npm",
-        ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
-        { cwd: modulePath }
-      );
-
-      installer.on("close", (code) => resolve());
-    });
-  } else {
-    return new Promise((resolve, reject) => resolve());
-  }
-}
-
-function cleanAndPullRepo(module) {
-  return new Promise(async (resolve, reject) => {
-    const modulePath = join(MM_MODULES_PATH, module);
-    const gitPath = join(modulePath, ".git");
-    const isGitModule =
-      fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-    if (!isGitModule) resolve();
-    try {
-      await git.addConfig("safe.directory", modulePath, true, "system");
-      const repo = simpleGit(modulePath);
-      // Clean the repository (remove untracked files and directories)
-      await repo.clean(CleanOptions.FORCE + CleanOptions.QUIET);
-      // Pull the latest changes from the remote
-      await repo.pull();
-      resolve();
-    } catch (error) {
-      resolve();
-    }
   });
 }
 
@@ -545,18 +553,14 @@ function fixMmpmCache() {
                 description
               }))(JSON.parse(fs.readFileSync(definitionsPath, "utf8")))
             : {})
-        })
-          .then((packageData) => {
-            // Check if package is not already in database
-            if (!repositories.includes(packageData.repository)) {
-              console.log(`  - Registering ${module}`);
-              externalPackages.push(packageData);
-              shouldSaveExternalPackages = true;
-            }
-          })
-          .then(() => cleanAndPullRepo(module))
-          .then(() => handleModuleDeps(module, isNpmModule))
-          .then(() => chownFolder(modulePath, 1000, 1000));
+        }).then((packageData) => {
+          // Check if package is not already in database
+          if (!repositories.includes(packageData.repository)) {
+            console.log(`  - Registering ${module}`);
+            externalPackages.push(packageData);
+            shouldSaveExternalPackages = true;
+          }
+        });
       })
   ).then(() => {
     if (shouldSaveExternalPackages) {
