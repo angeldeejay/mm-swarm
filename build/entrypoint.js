@@ -418,8 +418,8 @@ function cleanAndPullRepo(module) {
   console.log("  Updating repository");
   let repo;
   return [
-    git.addConfig("safe.directory", modulePath, true, "system", () => void 0),
-    git.addConfig("safe.directory", modulePath, true, "global", () => void 0),
+    git.addConfig("safe.directory", modulePath, true, "system"),
+    git.addConfig("safe.directory", modulePath, true, "global"),
     new Promise((r) => {
       repo = simpleGit(modulePath);
       r();
