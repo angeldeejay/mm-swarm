@@ -11,13 +11,25 @@ const pm2 = require("pm2");
 const prettier = require("prettier");
 const winston = require("winston");
 
+const logger = winston.createLogger({
+  level: "debug",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(({ level, message, label, timestamp }) => {
+      return `${timestamp} [${label}] ${level.toUpperCase()}: ${message}`;
+    }),
+    winston.format.colorize()
+  ),
+  transports: [new winston.transports.Console()]
+});
+
 if (
   !process.env.INSTANCE ||
   !process.env.MM_PORT ||
   !process.env.MMPM_PORT ||
   !process.env.LOCAL_IP
 ) {
-  console.error("Invalid environment!");
+  logger.error("Invalid environment!");
   process.exit(1);
 }
 
@@ -190,9 +202,21 @@ const PM2_APPS = [
   }
 ];
 
-console.log(`Setting environment for instance ${INSTANCE}`);
-console.log(`► MM_PORT   : ${MM_PORT}`);
-console.log(`► MMPM_PORT : ${MMPM_PORT}`);
+function log(msg) {
+  logger.info(msg, { label: "Environment" });
+}
+
+function error(msg) {
+  logger.error(msg, { label: "Environment" });
+}
+
+function warning(msg) {
+  logger.warn(msg, { label: "Environment" });
+}
+
+logger.log(`Setting environment for instance ${INSTANCE}`);
+logger.log(`► MM_PORT   : ${MM_PORT}`);
+logger.log(`► MMPM_PORT : ${MMPM_PORT}`);
 
 function deleteDoneFile() {
   try {
@@ -238,7 +262,7 @@ function setFixedConfig(filename, tpl, replacement) {
     }
   );
   fs.writeFileSync(filename, contents);
-  console.log(`Stored config for ${filename}`);
+  logger.log(`Stored config for ${filename}`);
 }
 
 // Function to process each file and replace the content
@@ -258,7 +282,7 @@ function updateFiles(file, replacements) {
 }
 
 function fixSystemFiles() {
-  console.log("Fixing system files");
+  logger.log("Fixing system files");
   // Define the glob patterns and whether to replace localhost
   const extensions = ["conf", "ini", "json", "js", "txt"].join(",");
   const patternPrefixes = {
@@ -295,10 +319,9 @@ function fixSystemFiles() {
     });
   });
   if (processed.length > 0) {
-    console.log(`Fixed host and ports:`);
-    processed.forEach((f) => console.log(`► ${f}`));
+    logger.log(`Fixed host and ports:`);
+    processed.forEach((f) => logger.log(`► ${f}`));
 
-    // Fix logger
     const loggerFile = join(MM_PATH, "node_modules/console-stamp/index.js");
     let loggerData = fs.readFileSync(loggerFile, "utf8");
     loggerData = loggerData.replace(
@@ -311,7 +334,7 @@ function fixSystemFiles() {
 
 function fixMmpmEnv() {
   // Fixing MMPM
-  console.log("Copying MMPM defaults");
+  logger.log("Copying MMPM defaults");
   copyFolder(join(DEFAULTS_PATH, "mmpm"), MMPM_CONFIG_PATH);
   if (!fs.existsSync(mmpmLogFile)) {
     fs.symlinkSync("/dev/null", mmpmLogFile);
@@ -320,14 +343,14 @@ function fixMmpmEnv() {
     .map(([key, value]) => `  - ${key}: ${value}`)
     .join("\n");
 
-  console.log(`Fixing MMPM environment:\n${envValues}`);
+  logger.log(`Fixing MMPM environment:\n${envValues}`);
   fs.writeFileSync(mmpmEnvFile, JSON.stringify(MMPM_CONFIG, null, 2), "utf-8");
-  console.log(`Stored config for ${mmpmEnvFile}`);
+  logger.log(`Stored config for ${mmpmEnvFile}`);
 }
 
 function fixMmEnv() {
   // Fixing MagicMirror
-  console.log("Generating default config");
+  logger.log("Generating default config");
   copyFolder(join(DEFAULTS_PATH, "config"), MM_CONFIG_PATH);
   if (!fs.existsSync(join(MM_CONFIG_PATH, "config.js")))
     fs.copyFileSync(
@@ -335,12 +358,12 @@ function fixMmEnv() {
       join(MM_CONFIG_PATH, "config.js")
     );
 
-  console.log("Generating default styles");
+  logger.log("Generating default styles");
   copyFolder(join(DEFAULTS_PATH, "css"), MM_CSS_PATH);
   if (!fs.existsSync(join(MM_CSS_PATH, "custom.css")))
     fs.writeFileSync(join(MM_CSS_PATH, "custom.css"), "");
 
-  console.log(`Fixing MagicMirror config`);
+  logger.log(`Fixing MagicMirror config`);
   const BASE_MODULES = [
     { module: "MMM-RefreshClientOnly" },
     { module: "mmpm" }
@@ -358,7 +381,7 @@ function fixMmEnv() {
       (m) => m.module === requiredModule.module
     );
     if (!alreadyInConfig) {
-      console.log(`Adding ${requiredModule.module} module to the config`);
+      logger.log(`Adding ${requiredModule.module} module to the config`);
       desiredConfig.modules = [requiredModule, ...desiredConfig.modules];
     }
   }
@@ -403,7 +426,7 @@ function handleModuleDeps(module) {
   const isNpmModule =
     fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
   if (!isNpmModule) return;
-  console.log("  Installing dependencies");
+  logger.log("  Installing dependencies");
   chownFolder("/root/.npm", 1000, 1000);
   chownFolder("/root/.npmrc", 1000, 1000);
   try {
@@ -412,14 +435,11 @@ function handleModuleDeps(module) {
       ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
       { cwd: modulePath }
     );
-    if (stderr && `${stderr}`.trim().length > 0) {
-      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
-      throw new Error(stderr);
-    }
-    console.log("  - Installed");
+    if (stderr && `${stderr}`.trim().length > 0) throw new Error(stderr);
+    logger.log("  - Installed");
   } catch (err) {
-    console.error(err);
-    console.warn("  - Not installed");
+    logger.error(err);
+    logger.error("  - Not installed");
   }
 }
 
@@ -429,7 +449,7 @@ function cleanRepo(module) {
   const isGitModule =
     fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
   if (!isGitModule) return Promise.resolve();
-  console.log("  Updating repository");
+  logger.log("  Updating repository");
   try {
     const { stderr } = spawnSync("git", ["checkout", "."], { cwd: modulePath });
     if (
@@ -438,14 +458,12 @@ function cleanRepo(module) {
         `${stderr}`.trim().startsWith("Updated ") ||
         `${stderr}`.trim().length === 0
       )
-    ) {
-      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
+    )
       throw new Error(stderr);
-    }
-    console.log("  - Clean");
+    logger.log("  - Cleaned");
   } catch (err) {
-    console.error(err);
-    console.warn("  - Not clean");
+    logger.error(err);
+    logger.error("  - Not cleaned");
   }
 }
 
@@ -465,14 +483,12 @@ function pullRepo(module) {
         `${stderr}`.trim().startsWith("From ") ||
         `${stderr}`.trim().length === 0
       )
-    ) {
-      console.log(typeof stderr, Object.entries(stderr), `'${stderr}'`);
+    )
       throw new Error(stderr);
-    }
-    console.log("  - Pulled");
+    logger.log("  - Pulled");
   } catch (err) {
-    console.error(err);
-    console.warn("  - Not pulled");
+    logger.error(err);
+    logger.error("  - Not pulled");
   }
 }
 
@@ -485,38 +501,38 @@ function fixModules() {
       rmFolder(join(MM_MODULES_PATH, module));
     });
 
-    console.log("Copying default modules");
+    logger.log("Copying default modules");
     fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
       .filter((m) => m.isDirectory())
       .forEach(({ name: module }) => {
-        console.log(`► ${module}`);
+        logger.log(`► ${module}`);
         const sourcePath = join(DEFAULT_MODULES_PATH, module);
         const targetPath = join(MM_MODULES_PATH, module);
         copyFolder(sourcePath, targetPath);
       });
 
-    console.log("Initializing modules");
+    logger.log("Initializing modules");
     return new Promise((resolve) => {
       fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
         .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
         .forEach(({ name: module }) => {
-          console.log(`► ${module}`);
+          logger.log(`► ${module}`);
           cleanRepo(module);
           pullRepo(module);
           handleModuleDeps(module);
         });
       chownFolder(MM_MODULES_PATH, 1000, 1000);
-      console.log("Modules ready");
+      logger.log("Modules ready");
       resolve();
     });
   }
 
-  console.log("Waiting modules");
+  logger.log("Waiting modules");
   return new Promise((resolve, reject) => {
     const interval = setInterval(() => {
       fs.stat(doneFile, (err) => {
         if (err) return;
-        console.log("Modules ready");
+        logger.log("Modules ready");
         clearInterval(interval);
         resolve();
       });
@@ -552,7 +568,7 @@ function updatePackageData(module, packageData) {
 }
 
 function fixMmpmCache() {
-  console.log("Fixing MMPM cache");
+  logger.log("Fixing MMPM cache");
   const packages = [];
   const externalPackages = [];
   try {
@@ -572,8 +588,8 @@ function fixMmpmCache() {
 
   const repositories = packages.map((p) => p.repository);
 
-  console.log("► Detected " + packages.length + " registered packages");
-  console.log("► Looking for modules" + MM_PATH);
+  logger.log("► Detected " + packages.length + " registered packages");
+  logger.log("► Looking for modules" + MM_PATH);
 
   let shouldSaveExternalPackages = false;
   return Promise.all(
@@ -605,7 +621,7 @@ function fixMmpmCache() {
         }).then((packageData) => {
           // Check if package is not already in database
           if (!repositories.includes(packageData.repository)) {
-            console.log(`  - Registering ${module}`);
+            logger.log(`  - Registering ${module}`);
             externalPackages.push(packageData);
             shouldSaveExternalPackages = true;
           }
@@ -613,9 +629,7 @@ function fixMmpmCache() {
       })
   ).then(() => {
     if (shouldSaveExternalPackages) {
-      console.log(
-        `► Saving ${externalPackages.length} external packages found`
-      );
+      logger.log(`► Saving ${externalPackages.length} external packages found`);
       fs.writeFileSync(
         externalPackagesFile,
         JSON.stringify({ "External Packages": externalPackages }, null, 4)
@@ -646,7 +660,7 @@ function clearMessages(msg) {
 function startApplication(app) {
   pm2.start(app, (error, apps) => {
     if (error) {
-      console.error(error);
+      logger.error(error);
       setTimeout(() => {
         pm2.restart(app, () => void 0);
       }, 1000);
@@ -668,18 +682,6 @@ new Promise((resolve) => {
     setTimeout(() => resolve(), 2000);
   }
 }).then(() => {
-  const logger = winston.createLogger({
-    level: "debug",
-    format: winston.format.combine(
-      winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-      winston.format.printf(({ level, message, label, timestamp }) => {
-        return `${timestamp} [${label}] ${level.toUpperCase()}: ${message}`;
-      }),
-      winston.format.colorize()
-    ),
-    transports: [new winston.transports.Console()]
-  });
-
   fixModules().then(async () => {
     if (FIRST_INSTANCE) {
       fs.writeFileSync(doneFile, "");
@@ -692,12 +694,12 @@ new Promise((resolve) => {
     fixMmpmCache().then(() => {
       pm2.connect(true, (error) => {
         if (error) {
-          console.error(error);
+          logger.error(error);
           process.exit(1);
         }
         pm2.launchBus((error, bus) => {
           if (error) {
-            console.error(error);
+            logger.error(error);
             process.exit(1);
           }
 
