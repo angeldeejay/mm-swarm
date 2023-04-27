@@ -409,25 +409,29 @@ async function handleModuleDeps(module) {
   }
 }
 
-async function cleanAndPullRepo(module) {
+function cleanAndPullRepo(module) {
   const modulePath = join(MM_MODULES_PATH, module);
   const gitPath = join(modulePath, ".git");
   const isGitModule =
     fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-  if (isGitModule) {
-    console.log("  Updating repository");
-    try {
-      await git.addConfig("safe.directory", modulePath, true, "system");
-      const repo = simpleGit(modulePath);
-      // Clean the repository (remove untracked files and directories)
-      await repo.clean(CleanOptions.FORCE + CleanOptions.QUIET);
-      // Pull the latest changes from the remote
-      await repo.pull();
+  if (!isGitModule) return Promise.resolve();
+  console.log("  Updating repository");
+  let repo;
+  return [
+    git.addConfig("safe.directory", modulePath, true, "system", () => void 0),
+    new Promise((r) => {
+      repo = simpleGit(modulePath);
+      r();
+    }),
+    // Clean the repository (remove untracked files and directories)
+    repo.clean(CleanOptions.FORCE + CleanOptions.QUIET, {}, () => void 0),
+    // Pull the latest changes from the remote
+    repo.pull({}, () => void 0),
+    new Promise((r) => {
       console.log("  Updated repository");
-    } catch (_) {
-      console.warn("  Can't update repository");
-    }
-  }
+      r();
+    })
+  ].reduce((p, c) => p.then(() => c), Promise.resolve());
 }
 
 function fixModules() {
@@ -452,7 +456,10 @@ function fixModules() {
         return [cleanAndPullRepo(module), handleModuleDeps(module)];
       })
       .reduce((acc, promises) => [...acc, ...promises], [])
-      .reduce((p, c) => p.then(() => c), Promise.resolve())
+      .reduce(
+        (p, c) => p.then(() => c.catch(() => void 0).then(() => void 0)),
+        Promise.resolve()
+      )
       .then(() => {
         chownFolder(MM_MODULES_PATH, 1000, 1000);
         console.log("Modules ready");
