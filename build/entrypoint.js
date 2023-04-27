@@ -659,61 +659,61 @@ function startApplication(app) {
   });
 }
 
-if (FIRST_INSTANCE) {
-  deleteUpdateFile();
-  deleteDoneFile();
-}
-
-const logger = winston.createLogger({
-  level: "debug",
-  format: winston.format.combine(
-    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-    winston.format.printf(({ level, message, label, timestamp }) => {
-      return `${timestamp} [${label}] ${level.toUpperCase()}: ${message}`;
-    }),
-    winston.format.colorize()
-  ),
-  transports: [new winston.transports.Console()]
-});
-
-fixModules().then(async () => {
+new Promise((resolve) => {
   if (FIRST_INSTANCE) {
-    fs.writeFileSync(doneFile, "");
+    deleteUpdateFile();
+    deleteDoneFile();
+  } else {
+    setTimeout(() => resolve(), 2000);
   }
-  fs.writeFileSync(updateFile, "");
+}).then(() => {
+  const logger = winston.createLogger({
+    level: "debug",
+    format: winston.format.combine(
+      winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+      winston.format.printf(({ level, message, label, timestamp }) => {
+        return `${timestamp} [${label}] ${level.toUpperCase()}: ${message}`;
+      }),
+      winston.format.colorize()
+    ),
+    transports: [new winston.transports.Console()]
+  });
 
-  fixSystemFiles();
-  fixMmEnv();
-  fixMmpmEnv();
-  fixMmpmCache().then(() => {
-    pm2.connect(true, (error) => {
-      if (error) {
-        console.error(error);
-        process.exit(1);
-      }
-      pm2.launchBus((error, bus) => {
+  fixModules().then(async () => {
+    if (FIRST_INSTANCE) {
+      fs.writeFileSync(doneFile, "");
+    }
+    fs.writeFileSync(updateFile, "");
+
+    fixSystemFiles();
+    fixMmEnv();
+    fixMmpmEnv();
+    fixMmpmCache().then(() => {
+      pm2.connect(true, (error) => {
         if (error) {
           console.error(error);
           process.exit(1);
         }
-
-        bus.on(
-          "log:out",
-          function ({ process: { name: label }, data: message }) {
-            if (label.indexOf("nginx") >= 0) return;
-            logger.info(clearMessages(message), { label });
+        pm2.launchBus((error, bus) => {
+          if (error) {
+            console.error(error);
+            process.exit(1);
           }
-        );
 
-        bus.on("log:err", function (data) {
-          logger.error(data, { label: "Process Manager" });
+          bus.on(
+            "log:out",
+            function ({ process: { name: label }, data: message }) {
+              if (label.indexOf("nginx") >= 0) return;
+              logger.info(clearMessages(message), { label });
+            }
+          );
+
+          logger.warn(`Starting apps:\n${JSON.stringify(PM2_APPS, null, 2)}`, {
+            label: "Process Manager"
+          });
+
+          PM2_APPS.forEach((app) => startApplication(app));
         });
-
-        logger.warn(`Starting apps:\n${JSON.stringify(PM2_APPS, null, 2)}`, {
-          label: "Process Manager"
-        });
-
-        PM2_APPS.forEach((app) => startApplication(app));
       });
     });
   });
