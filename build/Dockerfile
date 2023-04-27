@@ -48,7 +48,7 @@ RUN set -ex \
   && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
   && chmod -v 0440 /etc/sudoers.d/pn \
   && sudo -lU pn \
-  && npm install -g pm2@latest prettier \
+  && npm install -g pm2@latest \
   # smoke tests
   && python --version \
   && echo "node $(node --version)" \
