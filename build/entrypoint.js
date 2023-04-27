@@ -647,7 +647,7 @@ fixModules().then(async () => {
 
         bus.on("log:out", ({ process: { name: label }, data: message }) => {
           if (label.indexOf("nginx") >= 0) return;
-          clearMessages(message).forEach((m) => logger.info(m, { label }));
+          logger.info(clearMessages(message), { label });
         });
 
         pm2.start(
