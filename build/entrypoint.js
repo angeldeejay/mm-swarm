@@ -37,6 +37,7 @@ const NGINX_HOME = "/usr/sbin";
 const PYTHON_BIN_HOME = join(SCRIPT_PATH, ".local", "bin");
 
 const doneFile = join(MM_MODULES_PATH, ".done");
+const updateFile = join(MM_MODULES_PATH, ".update");
 const configFile = join(MM_PATH, "config", "config.js");
 const defaultConfigFile = join(MM_PATH, "config", "config.js.sample");
 const externalPackagesFile = join(
@@ -198,6 +199,12 @@ console.log(`► MMPM_PORT : ${MMPM_PORT}`);
 function deleteDoneFile() {
   try {
     fs.unlinkSync(doneFile);
+  } catch (_) {}
+}
+
+function deleteUpdateFile() {
+  try {
+    fs.unlinkSync(updateFile);
   } catch (_) {}
 }
 
@@ -438,7 +445,7 @@ function cleanAndPullRepo(module) {
 }
 
 function fixModules() {
-  if (FIRST_INSTANCE) {
+  if (FIRST_INSTANCE || fs.existsSync(updateFile)) {
     chownFolder(MM_MODULES_PATH, 1000, 1000);
     console.log("Copying default modules");
     fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
@@ -608,6 +615,7 @@ function clearMessages(msg) {
 }
 
 if (FIRST_INSTANCE) {
+  deleteUpdateFile();
   deleteDoneFile();
   ["mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
     rmFolder(join(MM_MODULES_PATH, module));
@@ -627,7 +635,10 @@ const logger = winston.createLogger({
 });
 
 fixModules().then(async () => {
-  if (FIRST_INSTANCE) fs.writeFileSync(doneFile, "DONE");
+  if (FIRST_INSTANCE) {
+    fs.writeFileSync(doneFile, "");
+  }
+  fs.writeFileSync(updateFile, "");
 
   fixSystemFiles();
   fixMmEnv();
