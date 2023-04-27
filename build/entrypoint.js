@@ -6,6 +6,7 @@ const { sync: chownFolder } = require("chownr");
 const fs = require("fs");
 const fse = require("fs-extra");
 const git = simpleGit();
+const gitConfigParse = require("parse-git-config");
 const pm2 = require("pm2");
 const prettier = require("prettier");
 const winston = require("winston");
@@ -418,8 +419,6 @@ function cleanAndPullRepo(module) {
   console.log("  Updating repository");
   let repo;
   return [
-    git.addConfig("safe.directory", modulePath, true, "system"),
-    git.addConfig("safe.directory", modulePath, true, "global"),
     new Promise((r) => {
       repo = simpleGit(modulePath);
       r();
@@ -459,7 +458,13 @@ function fixModules() {
         console.log(`► ${module}`);
         return [cleanAndPullRepo(module), handleModuleDeps(module)];
       })
-      .reduce((acc, promises) => [...acc, ...promises], [])
+      .reduce(
+        (acc, promises) => [...acc, ...promises],
+        [
+          git.addConfig("safe.directory", "*", false, "system"),
+          git.addConfig("safe.directory", "*", false, "global")
+        ]
+      )
       .reduce(
         (p, c) => p.then(() => c.catch(() => void 0).then(() => void 0)),
         Promise.resolve()
@@ -503,6 +508,7 @@ function updatePackageData(module, packageData) {
           .replace(REPO_URL_REGEX, "https://$2/$3/$4")
           .replace(/\.git$/gi, "");
       }
+      resolve(packageData);
     } catch (_) {
       resolve(packageData);
     }
@@ -599,20 +605,6 @@ function clearMessages(msg) {
       ""
     )
     .replace(/\n{2,}/, "\n");
-  // .replace(/(^\s+|\s+$)/g, "");
-  // .split(/[\r\n]/gim)
-  // .map((line) =>
-  //   line
-  //     .toString()
-  //     .trim()
-  //     .replace(ansiPattern, "")
-  //     .replace(
-  //       /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
-  //       ""
-  //     )
-  //     .replace(/(^\s+|\s+$)/g, "")
-  // )
-  // .filter((line) => `${line}`.length > 0);
 }
 
 if (FIRST_INSTANCE) {

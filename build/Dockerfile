@@ -109,10 +109,8 @@ RUN set -ex \
 RUN set -ex \
   # MMM-RefreshClientOnly
   && cd /home/pn \
-  && git clone -b master https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  MagicMirror/modules/MMM-RefreshClientOnly \
-  && rm -fr MagicMirror/modules/MMM-RefreshClientOnly/node_modules \
-  && true
+  && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
+  MagicMirror/modules/MMM-RefreshClientOnly
 
 RUN set -ex \
   # Environment
