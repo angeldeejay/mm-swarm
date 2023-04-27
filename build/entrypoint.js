@@ -432,7 +432,10 @@ function cleanAndPullRepo(module) {
       console.log("  Updated repository");
       r();
     })
-  ].reduce((p, c) => p.then(() => c), Promise.resolve());
+  ].reduce(
+    (p, c) => p.then(() => c.catch(() => void 0).then(() => void 0)),
+    Promise.resolve()
+  );
 }
 
 function fixModules() {
