@@ -1,14 +1,15 @@
+const dayjs = require("dayjs");
+const { grey, green, blue, cyan, yellow, red } = require("kleur");
 const { globSync } = require("glob");
 const { join, sep } = require("path");
-const { simpleGit, CleanOptions } = require("simple-git");
 const { spawnSync } = require("child_process");
 const { sync: chownFolder } = require("chownr");
 const fs = require("fs");
 const fse = require("fs-extra");
-const git = simpleGit();
 const gitConfigParse = require("parse-git-config");
 const pm2 = require("pm2");
 const prettier = require("prettier");
+const util = require("util");
 const winston = require("winston");
 
 const logger = winston.createLogger({
@@ -94,27 +95,23 @@ const HOSTS = {
   localhost: LOCAL_IP
 };
 
-const MM_BASE_CONFIG = {
+const MM_ENFORCED_CONFIG = {
   address: "0.0.0.0",
   port: MM_PORT,
   basePath: "/",
-  timeFormat: 12,
   ipWhitelist: [],
+  logging: {
+    dateFormat: ""
+  }
+};
+
+const MM_BASE_CONFIG = {
+  timeFormat: 12,
   language: "es",
   locale: "es_CO",
   logLevel: ["INFO", "LOG", "WARN", "ERROR"],
-  logging: {
-    dateFormat: ""
-  },
   units: "metric",
-  serverOnly: true,
-  electronOptions: {
-    webPreferences: {
-      webviewTag: true,
-      contextIsolation: false,
-      enableRemoteModule: true
-    }
-  }
+  modules: []
 };
 
 const MMPM_CONFIG = {
@@ -160,11 +157,7 @@ const PM2_APPS = [
     exec_mode: "fork",
     watch: ["./", "config", "config.js"].join(sep),
     auto_restart: true,
-    log_date_format: "",
-    time: false,
     user: 1000,
-    merge_logs: true,
-    combine_logs: true,
     kill_timeout: 0,
     env: {
       MM_PORT: MM_PORT
@@ -190,12 +183,7 @@ const PM2_APPS = [
     ],
     exec_mode: "fork",
     auto_restart: true,
-    log_date_format: "",
-    error_file: "/dev/null",
-    time: false,
     user: 1000,
-    merge_logs: true,
-    combine_logs: true,
     kill_timeout: 0
   },
   {
@@ -205,11 +193,8 @@ const PM2_APPS = [
     args: ["-g", "daemon off; master_process on;"],
     exec_mode: "fork",
     auto_restart: true,
-    log_date_format: "",
+    log_file: "/dev/null",
     error_file: "/dev/null",
-    time: false,
-    merge_logs: true,
-    combine_logs: true,
     kill_timeout: 0
   }
 ];
@@ -326,7 +311,7 @@ function fixSystemFiles() {
     let loggerData = fs.readFileSync(loggerFile, "utf8");
     loggerData = loggerData.replace(
       /(generateConfig\(\s*)([^\)]+)/gm,
-      "$1{ ...options, format: '', pattern: '' }"
+      "$1{ ...options, format: ':label|:msg', pattern: ':label|:msg' }"
     );
     fs.writeFileSync(loggerFile, loggerData);
   }
@@ -374,7 +359,20 @@ function fixMmEnv() {
     : fs.existsSync(defaultConfigFile)
     ? require(defaultConfigFile)
     : {};
-  const desiredConfig = deepMerge(deepMerge({}, actualConfig), MM_BASE_CONFIG);
+  const desiredConfig = {
+    ...MM_ENFORCED_CONFIG,
+    ...MM_BASE_CONFIG,
+    ...deepMerge({}, actualConfig),
+    ...MM_ENFORCED_CONFIG,
+    serverOnly: true,
+    electronOptions: {
+      webPreferences: {
+        webviewTag: true,
+        contextIsolation: false,
+        enableRemoteModule: true
+      }
+    }
+  };
 
   for (const requiredModule of BASE_MODULES) {
     const alreadyInConfig = desiredConfig.modules.find(
@@ -658,19 +656,79 @@ function clearMessages(msg) {
 }
 
 function startApplication(app) {
-  pm2.start(app, (err, apps) => {
+  info("starting " + app.name);
+  pm2.start(app, (err, proc) => {
     if (err) {
       error(err);
-      setTimeout(() => {
-        pm2.restart(app, () => void 0);
-      }, 1000);
+      info(app.name + " not started!");
+      setTimeout(() => startApplication(app), 1000);
     }
-    apps.forEach((app) =>
-      info((err ? "not" : "") + "started!", {
-        label: app.pm2_env.name
-      })
-    );
+    info(app.name + " started!");
   });
+}
+
+const currentLevels = PM2_APPS.reduce((acc, a) => {
+  acc[a.name] = null;
+  return acc;
+}, {});
+
+function handlePm2Log(_, { data, process: { name } }) {
+  if (!PM2_APPS.map((a) => a.name).includes(name) || typeof data !== "string")
+    return;
+  const rawData = data || "";
+
+  rawData
+    .split("\n")
+    .filter((line) => line && line.length > 0)
+    .forEach(function (line) {
+      let fixedLine = line;
+      if (name === "mmpm") {
+        fixedLine = line
+          .replace(/^\[[^\]]+\]\s+\[[^\]]+\]\s+(\[[^\]]+\])\s+(.*)/gim, "$1|$2")
+          .replace(/\s+$/g, "");
+      }
+      const message = fixedLine.startsWith("[")
+        ? fixedLine.replace(/^[^\|]+\|(.*)/gim, "$1")
+        : fixedLine;
+      let level = fixedLine
+        .replace(message, "")
+        .trim()
+        .replace(/\|/i, "")
+        .replace(/(\[|\])/gim, "");
+      if (level === "" || message.length === 0 || message.startsWith("\n"))
+        level = null;
+      const currentLevel = (level || currentLevels[name])
+        .toUpperCase()
+        .replace("WARNING", "WARN")
+        .replace("WARN", "WARNING");
+      currentLevels[name] = currentLevel;
+      if (level !== null) {
+        process.stdout.write(
+          grey(`${dayjs().format("YYYY/MM/DD HH:mm:ss.SSS")} `)
+        );
+        process.stdout.write(name.padStart(12, " ") + " |");
+        const formattedLevel = currentLevel.padStart(8, " ");
+        switch (currentLevel) {
+          case "INFO":
+            process.stdout.write(green(formattedLevel));
+            break;
+          case "LOG":
+            process.stdout.write(blue(formattedLevel));
+            break;
+          case "DEBUG":
+            process.stdout.write(cyan(formattedLevel));
+            break;
+          case "WARNING":
+            process.stdout.write(yellow(formattedLevel));
+            break;
+          case "ERROR":
+            process.stdout.write(red(formattedLevel));
+            break;
+        }
+        process.stdout.write(": ");
+      }
+      process.stdout.write(util.format(message) + "\n");
+    });
 }
 
 new Promise((resolve) => {
@@ -697,24 +755,13 @@ new Promise((resolve) => {
           error(err);
           process.exit(1);
         }
+
         pm2.launchBus((err, bus) => {
           if (err) {
             error(err);
-            process.exit(1);
+            process.exit(2);
           }
-
-          bus.on(
-            "log:out",
-            function ({ process: { name: label }, data: message }) {
-              if (label.indexOf("nginx") >= 0) return;
-              logger.info(clearMessages(message), { label });
-            }
-          );
-
-          logger.warn(`Starting apps:\n${JSON.stringify(PM2_APPS, null, 2)}`, {
-            label: "Process Manager"
-          });
-
+          bus.on("log:*", (...args) => handlePm2Log(...args));
           PM2_APPS.forEach((app) => startApplication(app));
         });
       });
