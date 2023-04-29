@@ -602,7 +602,7 @@ function fixMmpmCache() {
         const isNpmModule =
           fs.existsSync(definitionsPath) &&
           fs.statSync(definitionsPath).isFile();
-
+        const enforce = { title: module };
         return updatePackageData(module, {
           title: module,
           author: "Anonymous",
@@ -615,7 +615,8 @@ function fixMmpmCache() {
                 repository,
                 description
               }))(JSON.parse(fs.readFileSync(definitionsPath, "utf8")))
-            : {})
+            : {}),
+          ...enforce
         }).then((packageData) => {
           // Check if package is not already in database
           if (!repositories.includes(packageData.repository)) {
