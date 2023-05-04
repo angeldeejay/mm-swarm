@@ -147,7 +147,6 @@ if (typeof module !== 'undefined') {
 \tmodule.exports = config;
 }`;
 
-const REPO_URL_REGEX = /^([\w]+@)?([^:]+):([^\/]+)\/(.+)(\.git)?$/gi;
 const PM2_APPS = [
   {
     name: "MagicMirror",
