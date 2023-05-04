@@ -1,7 +1,7 @@
 {
   "name": "mm-swarm",
   "description": "MagicMirror/MMPM Docker Cluster with shared resources",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": "Andres Vanegas <ukab72106@gmail.com>",
   "bugs": {
     "url": "https://github.com/angeldeejay/mm-swarm/issues",
@@ -18,6 +18,7 @@
     "dayjs": "^1.11.7",
     "deepmerge": "^4.2.2",
     "fs-extra": "^11.1.1",
+    "hosted-git-info": "^6.1.1",
     "js-yaml": "^4.1.0",
     "kleur": "^4.1.5",
     "npm": "^8.18.0",

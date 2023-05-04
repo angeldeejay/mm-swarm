@@ -1,11 +1,12 @@
 const dayjs = require("dayjs");
 const { grey, green, blue, cyan, yellow, red } = require("kleur");
 const { globSync } = require("glob");
-const { join, sep } = require("path");
+const { join, sep, basename } = require("path");
 const { spawnSync } = require("child_process");
 const { sync: chownFolder } = require("chownr");
 const fs = require("fs");
 const fse = require("fs-extra");
+const hostedGitInfo = require("hosted-git-info");
 const gitConfigParse = require("parse-git-config");
 const pm2 = require("pm2");
 const prettier = require("prettier");
@@ -418,8 +419,82 @@ function copyFolder(sourceFolder, targetFolder) {
   chownFolder(targetFolder, 1000, 1000);
 }
 
-function handleModuleDeps(module) {
-  const modulePath = join(MM_MODULES_PATH, module);
+function getValue(obj, ...keys) {
+  const [key, ...rest] = keys;
+  if (obj === undefined || obj === null) return undefined;
+  else if (rest.length === 0) return obj[key];
+  else return getValue(obj[key], ...rest);
+}
+
+function isPackage(modulePath) {
+  try {
+    const definitionsPath = join(modulePath, "package.json");
+    return (
+      fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile()
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function isGitRepo(modulePath) {
+  try {
+    const { stdout } = spawnSync(
+      "git",
+      ["rev-parse", "--is-inside-work-tree"],
+      { cwd: modulePath }
+    );
+    return stdout && `${stdout}`.trim() === "true";
+  } catch (_) {
+    return false;
+  }
+}
+
+function getModuleInfo(modulePath) {
+  const definitionsPath = join(modulePath, "package.json");
+  let packageInfo;
+  try {
+    packageInfo = isPackage(modulePath) ? require(definitionsPath) : {};
+  } catch (err) {
+    error(err);
+    packageInfo = {};
+  }
+  let repository = (
+    typeof packageInfo.repository === "string"
+      ? packageInfo.repository.trim()
+      : typeof packageInfo.repository === "object" &&
+        typeof packageInfo.repository.url === "string"
+      ? packageInfo.repository.url.trim()
+      : ""
+  ).trim();
+  if (isGitRepo(modulePath)) {
+    try {
+      const newRepoUrl =
+        getValue(
+          gitConfigParse.sync({
+            type: "local",
+            cwd: modulePath,
+            path: modulePath + "/.git/config"
+          }),
+          'remote "origin"',
+          "url"
+        ) ?? repository;
+      repository = newRepoUrl;
+    } catch (error) {}
+  }
+  if (repository !== "") {
+    repository = hostedGitInfo.fromUrl(repository).browse({});
+  }
+  return {
+    title: packageInfo.name ?? basename(modulePath),
+    author: packageInfo.author ?? "",
+    repository,
+    version: packageInfo.version ?? "0.0.0",
+    description: packageInfo.description ?? module
+  };
+}
+
+function handleModuleDeps(modulePath) {
   const definitionsPath = join(modulePath, "package.json");
   const isNpmModule =
     fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
@@ -433,44 +508,20 @@ function handleModuleDeps(module) {
       ["install", "--no-audit", "--no-fund", "--prefix", modulePath],
       { cwd: modulePath }
     );
-    if (stderr && `${stderr}`.trim().length > 0) throw new Error(stderr);
-    info("  - Installed");
+    if (stderr && `${stderr}`.trim().length > 0) throw new Error(`${stderr}`);
+    info(`  - Done`);
   } catch (err) {
-    error(err);
-    warning("  - Not installed");
+    warning(`  - Error: ${err}`);
   }
 }
 
-function cleanRepo(module) {
-  const modulePath = join(MM_MODULES_PATH, module);
-  const gitPath = join(modulePath, ".git");
-  const isGitModule =
-    fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-  if (!isGitModule) return Promise.resolve();
-  info("  Updating repository");
+function cleanRepo(modulePath) {
   try {
-    const { stderr } = spawnSync("git", ["checkout", "."], { cwd: modulePath });
-    if (
-      stderr &&
-      !(
-        `${stderr}`.trim().startsWith("Updated ") ||
-        `${stderr}`.trim().length === 0
-      )
-    )
-      throw new Error(stderr);
-    info("  - Cleaned");
-  } catch (err) {
-    error(err);
-    warning("  - Not cleaned");
-  }
+    spawnSync("git", ["checkout", "."], { cwd: modulePath });
+  } catch (err) {}
 }
 
-function pullRepo(module) {
-  const modulePath = join(MM_MODULES_PATH, module);
-  const gitPath = join(modulePath, ".git");
-  const isGitModule =
-    fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-  if (!isGitModule) return Promise.resolve();
+function pullRepo(modulePath) {
   try {
     const { stderr } = spawnSync("git", ["pull", "--force"], {
       cwd: modulePath
@@ -483,10 +534,9 @@ function pullRepo(module) {
       )
     )
       throw new Error(stderr);
-    info("  - Pulled");
+    info(`  - Done`);
   } catch (err) {
-    error(err);
-    warning("  - Not pulled");
+    warning(`  - Error: ${err}`);
   }
 }
 
@@ -514,10 +564,18 @@ function fixModules() {
       fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
         .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
         .forEach(({ name: module }) => {
+          const modulePath = join(MM_MODULES_PATH, module);
+          const currentVersion = getModuleInfo(modulePath).version;
           info(`► ${module}`);
-          cleanRepo(module);
-          pullRepo(module);
-          handleModuleDeps(module);
+          if (isGitRepo(modulePath)) {
+            info("  Updating repository");
+            cleanRepo(modulePath);
+            pullRepo(modulePath);
+            const newVersion = getModuleInfo(modulePath).version;
+            if (newVersion !== currentVersion)
+              info(`  Version setted as ${newVersion}`);
+          }
+          if (isPackage(modulePath)) handleModuleDeps(modulePath);
         });
       chownFolder(MM_MODULES_PATH, 1000, 1000);
       info("Modules ready");
@@ -535,33 +593,6 @@ function fixModules() {
         resolve();
       });
     }, 1000);
-  });
-}
-
-function updatePackageData(module, packageData) {
-  return new Promise((resolve, reject) => {
-    const modulePath = join(MM_MODULES_PATH, module);
-    const gitPath = join(modulePath, ".git");
-    const isGitModule =
-      fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory();
-    if (!isGitModule) resolve(packageData);
-    try {
-      const repoData = gitConfigParse.sync({
-        type: "local",
-        cwd: modulePath,
-        path: modulePath + "/.git/config"
-      });
-      if (typeof repoData['remote "origin"'] !== "undefined") {
-        // prefer local repository data over package.json repository
-        packageData.repository = `${repoData['remote "origin"'].url}`
-          .trim()
-          .replace(REPO_URL_REGEX, "https://$2/$3/$4")
-          .replace(/\.git$/gi, "");
-      }
-      resolve(packageData);
-    } catch (_) {
-      resolve(packageData);
-    }
   });
 }
 
@@ -590,70 +621,29 @@ function fixMmpmCache() {
   info("► Looking for modules" + MM_PATH);
 
   let shouldSaveExternalPackages = false;
-  return Promise.all(
-    fs
-      .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
-      .filter(
-        (file) => !["mmpm", "default"].includes(file.name) && file.isDirectory()
-      )
-      .map(({ name: module }) => {
-        const modulePath = join(MM_MODULES_PATH, module);
-        const definitionsPath = join(modulePath, "package.json");
-        const isNpmModule =
-          fs.existsSync(definitionsPath) &&
-          fs.statSync(definitionsPath).isFile();
-        const enforce = { title: module };
-        return updatePackageData(module, {
-          title: module,
-          author: "Anonymous",
-          repository: "",
-          description: `Local module installation of ${module}`,
-          ...(isNpmModule
-            ? (({ title, author, repository, description }) => ({
-                title,
-                author,
-                repository,
-                description
-              }))(JSON.parse(fs.readFileSync(definitionsPath, "utf8")))
-            : {}),
-          ...enforce
-        }).then((packageData) => {
-          // Check if package is not already in database
-          if (!repositories.includes(packageData.repository)) {
-            info(`  - Registering ${module}`);
-            externalPackages.push(packageData);
-            shouldSaveExternalPackages = true;
-          }
-        });
-      })
-  ).then(() => {
-    if (shouldSaveExternalPackages) {
-      info(`► Saving ${externalPackages.length} external packages found`);
-      fs.writeFileSync(
-        externalPackagesFile,
-        JSON.stringify({ "External Packages": externalPackages }, null, 4)
-      );
-    }
-  });
-}
-
-function clearMessages(msg) {
-  const ansiPattern = RegExp(
-    [
-      "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
-      "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
-    ].join("|"),
-    "gim"
-  );
-  return msg
-    .toString()
-    .trim()
-    .replace(ansiPattern, "")
-    .replace(
-      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]\n/gim,
-      ""
+  fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+    .filter(
+      (file) => !["mmpm", "default"].includes(file.name) && file.isDirectory()
     )
-    .replace(/\n{2,}/, "\n");
+    .forEach(({ name: module }) => {
+      const modulePath = join(MM_MODULES_PATH, module);
+      const { title, author, repository, description } =
+        getModuleInfo(modulePath);
+      // Check if package is not already in database
+      if (repository === "" || !repositories.includes(repository)) {
+        info(`  - Registering ${module}`);
+        externalPackages.push({ title, author, repository, description });
+        shouldSaveExternalPackages = true;
+      }
+    });
+
+  if (shouldSaveExternalPackages) {
+    info(`► Saving ${externalPackages.length} external packages found`);
+    fs.writeFileSync(
+      externalPackagesFile,
+      JSON.stringify({ "External Packages": externalPackages }, null, 4)
+    );
+  }
 }
 
 function startApplication(app) {
@@ -750,21 +740,21 @@ new Promise((resolve) => {
     fixSystemFiles();
     fixMmEnv();
     fixMmpmEnv();
-    fixMmpmCache().then(() => {
-      pm2.connect(true, (err) => {
+    fixMmpmCache();
+
+    pm2.connect(true, (err) => {
+      if (err) {
+        error(err);
+        process.exit(1);
+      }
+
+      pm2.launchBus((err, bus) => {
         if (err) {
           error(err);
-          process.exit(1);
+          process.exit(2);
         }
-
-        pm2.launchBus((err, bus) => {
-          if (err) {
-            error(err);
-            process.exit(2);
-          }
-          bus.on("log:*", (...args) => handlePm2Log(...args));
-          PM2_APPS.forEach((app) => startApplication(app));
-        });
+        bus.on("log:*", (...args) => handlePm2Log(...args));
+        PM2_APPS.forEach((app) => startApplication(app));
       });
     });
   });
