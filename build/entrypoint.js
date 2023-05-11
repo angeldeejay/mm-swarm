@@ -141,8 +141,13 @@ const MM_CONFIG_TPL = `/** MagicMirror² Config Sample
  * which will be converted to \`config.js\` while starting. For more information
  * see https://docs.magicmirror.builders/configuration/introduction.html#enviromnent-variables
  *
- * INSTANCE  : ${INSTANCE}
- * MMPM_PORT : ${MMPM_PORT}
+ * ► LOCAL_IP    : ${LOCAL_IP}
+ * ► MM_PORT     : ${MM_PORT}
+ * ► MMPM_PORT   : ${MMPM_PORT}
+ * ► API_PORT    : ${API_PORT}
+ * ► RTSP_PORT   : ${RTSP_PORT}
+ * ► SRTP_PORT   : ${SRTP_PORT}
+ * ► WEBRTC_PORT : ${WEBRTC_PORT}
  */
 \n\n
 let config = __PLACEHOLDER__;
