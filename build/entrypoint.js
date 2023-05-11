@@ -81,6 +81,10 @@ const mmpmLogFile = join(MMPM_CONFIG_PATH, "log", "mmpm-cli-interface.log");
 const INSTANCE = process.env.INSTANCE;
 const MM_PORT = parseInt(process.env.MM_PORT || "8080", 10);
 const MMPM_PORT = parseInt(process.env.MMPM_PORT || "7890", 10);
+const API_PORT = parseInt(process.env.API_PORT || "1984", 10);
+const RTSP_PORT = parseInt(process.env.RTSP_PORT || "8554", 10);
+const SRTP_PORT = parseInt(process.env.SRTP_PORT || "8443", 10);
+const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "8555", 10);
 const LOCAL_IP = process.env.LOCAL_IP || "127.0.0.1";
 
 // Constants
@@ -160,7 +164,11 @@ const PM2_APPS = [
     user: 1000,
     kill_timeout: 0,
     env: {
-      MM_PORT: MM_PORT
+      MM_PORT: MM_PORT,
+      API_PORT: API_PORT,
+      RTSP_PORT: RTSP_PORT,
+      SRTP_PORT: SRTP_PORT,
+      WEBRTC_PORT: WEBRTC_PORT
     }
   },
   {
@@ -200,8 +208,13 @@ const PM2_APPS = [
 ];
 
 info(`Setting environment for instance ${INSTANCE}`);
-info(`► MM_PORT   : ${MM_PORT}`);
-info(`► MMPM_PORT : ${MMPM_PORT}`);
+info(`► LOCAL_IP    : ${LOCAL_IP}`);
+info(`► MM_PORT     : ${MM_PORT}`);
+info(`► MMPM_PORT   : ${MMPM_PORT}`);
+info(`► API_PORT    : ${API_PORT}`);
+info(`► RTSP_PORT   : ${RTSP_PORT}`);
+info(`► SRTP_PORT   : ${SRTP_PORT}`);
+info(`► WEBRTC_PORT : ${WEBRTC_PORT}`);
 
 function deleteDoneFile() {
   try {

@@ -82,6 +82,10 @@ const instanceTemplate = yaml.dump(
           "INSTANCE=${INSTANCE}",
           "MM_PORT=${MM_PORT}",
           "MMPM_PORT=${MMPM_PORT}",
+          "API_PORT=${API_PORT}",
+          "RTSP_PORT=${RTSP_PORT}",
+          "SRTP_PORT=${SRTP_PORT}",
+          "WEBRTC_PORT=${WEBRTC_PORT}",
           "LOCAL_IP=${LOCAL_IP}",
           "CLIENT_ID=",
           "CLIENT_SECRET=",
@@ -95,7 +99,11 @@ const instanceTemplate = yaml.dump(
         },
         ports: [
           "0.0.0.0:${MM_PORT}:${MM_PORT}",
-          "0.0.0.0:${MMPM_PORT}:${MMPM_PORT}"
+          "0.0.0.0:${MMPM_PORT}:${MMPM_PORT}",
+          "0.0.0.0:${API_PORT}:${API_PORT}",
+          "0.0.0.0:${RTSP_PORT}:8554",
+          "0.0.0.0:${SRTP_PORT}:8443",
+          "0.0.0.0:${WEBRTC_PORT}:8555"
         ],
         volumes: [
           `${HOST_MMPM_CONFIG_PATH}:${CONTAINER_MMPM_CONFIG_PATH}`,
@@ -105,7 +113,7 @@ const instanceTemplate = yaml.dump(
           `${HOST_SHARED_PATH}:${CONTAINER_SHARED_PATH}`
         ],
         privileged: true,
-        restart: "always",
+        restart: "unless-stopped",
         networks: ["${INSTANCE}-network"]
       }
     },
@@ -126,7 +134,11 @@ const replacements = {
   LOCAL_IP: [],
   INSTANCE: [],
   MM_PORT: [],
-  MMPM_PORT: []
+  MMPM_PORT: [],
+  API_PORT: [],
+  RTSP_PORT: [],
+  SRTP_PORT: [],
+  WEBRTC_PORT: []
 };
 
 console.log("► Looking for instances");
@@ -139,13 +151,25 @@ fs.readdirSync(HOST_INSTANCES_PATH, { withFileTypes: true })
     instances++;
     const mmPort = 8080 + index;
     const mmpmPort = 7890 + index * 4;
+    const apiPort = 1984 + index;
+    const rtspPort = 8554 + index;
+    const srtpPort = 8443 + index;
+    const webrtcPort = 8555 + index;
     console.log("⦿ Found instance: " + instance);
     replacements.LOCAL_IP.push(ipToBind.address);
     replacements.INSTANCE.push(instance);
     replacements.MM_PORT.push(mmPort);
     replacements.MMPM_PORT.push(mmpmPort);
+    replacements.API_PORT.push(apiPort);
+    replacements.RTSP_PORT.push(rtspPort);
+    replacements.SRTP_PORT.push(srtpPort);
+    replacements.WEBRTC_PORT.push(webrtcPort);
     console.log("  - MM_PORT       : " + mmPort);
     console.log("  - MMPM_PORT     : " + mmpmPort);
+    console.log("  - API_PORT      : " + apiPort);
+    console.log("  - RTSP_PORT     : " + rtspPort);
+    console.log("  - SRTP_PORT     : " + srtpPort);
+    console.log("  - WEBRTC_PORT   : " + webrtcPort);
     fs.mkdirSync(path.join(HOST_CACHE_PATH, `mmpm_${instance}`), {
       recursive: true
     });
