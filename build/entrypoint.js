@@ -12,6 +12,7 @@ const pm2 = require("pm2");
 const prettier = require("prettier");
 const util = require("util");
 const winston = require("winston");
+const nginxParser = new (require("@webantic/nginx-config-parser"))();
 
 const logger = winston.createLogger({
   level: "debug",
@@ -76,11 +77,13 @@ const thirdPartyPackagesFile = join(
 );
 const mmpmEnvFile = join(MMPM_CONFIG_PATH, "mmpm-env.json");
 const mmpmLogFile = join(MMPM_CONFIG_PATH, "log", "mmpm-cli-interface.log");
+const nginxConfigFile = join(NGINX_CONFIG_PATH, "default.conf");
 
 // Networking
 const INSTANCE = process.env.INSTANCE;
 const MM_PORT = parseInt(process.env.MM_PORT || "8080", 10);
 const MMPM_PORT = parseInt(process.env.MMPM_PORT || "7890", 10);
+const MMPM_INTERNAL_PORT = MMPM_PORT + 1;
 const API_PORT = parseInt(process.env.API_PORT || "2984", 10);
 const RTSP_PORT = parseInt(process.env.RTSP_PORT || "9554", 10);
 const SRTP_PORT = parseInt(process.env.SRTP_PORT || "9443", 10);
@@ -126,6 +129,29 @@ const MMPM_CONFIG = {
   MMPM_MAGICMIRROR_PM2_PROCESS_NAME: "MagicMirror",
   MMPM_MAGICMIRROR_DOCKER_COMPOSE_FILE: "",
   MMPM_IS_DOCKER_IMAGE: false
+};
+
+const NGINX_CONFIG = {
+  server: {
+    listen: `${MMPM_PORT} default_server`,
+    server_name: "_",
+    "location /": {
+      proxy_pass: `http://127.0.0.1:${MMPM_INTERNAL_PORT}`,
+      root: "/var/www/mmpm",
+      proxy_set_header: [
+        "Host $http_host",
+        "X-Real-IP $remote_addr",
+        "X-Real-PORT $remote_port"
+      ],
+      add_header: "\"Access-Control-Allow-Origin\" '*'"
+    },
+    "location /static": {
+      root: "/var/www/mmpm",
+      add_header: "\"Access-Control-Allow-Origin\" '*'"
+    },
+    error_log: "/var/log/nginx/mmpm-error.log",
+    access_log: "/var/log/nginx/mmpm-access.log"
+  }
 };
 
 const MM_CONFIG_TPL = `/** MagicMirror² Config Sample
@@ -189,7 +215,7 @@ const PM2_APPS = [
         "--worker-class",
         "gevent",
         "--bind",
-        "localhost:7891",
+        `0.0.0.0:${MMPM_INTERNAL_PORT}`,
         "mmpm.wsgi:app",
         "--user=pn"
       ].join(" ")
@@ -286,10 +312,12 @@ function updateFiles(file, replacements) {
 
 function fixSystemFiles() {
   info("Fixing system files");
+  info(`► ${nginxConfigFile}`);
+  nginxParser.writeConfigFile(nginxConfigFile, NGINX_CONFIG, true);
+
   // Define the glob patterns and whether to replace localhost
   const extensions = ["conf", "ini", "json", "js", "txt"].join(",");
   const patternPrefixes = {
-    [NGINX_CONFIG_PATH]: false,
     [MMPM_STATIC_PATH]: true,
     [MMPM_CONFIG_PATH]: false,
     [join(MM_PATH, "js")]: false
@@ -676,7 +704,7 @@ function startApplication(app) {
 }
 
 const currentLevels = PM2_APPS.reduce((acc, a) => {
-  acc[a.name] = null;
+  acc[a.name] = "INFO";
   return acc;
 }, {});
 

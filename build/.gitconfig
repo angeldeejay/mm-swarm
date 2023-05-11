@@ -1,5 +1,8 @@
 [user]
   name = angeldeejay
   email = angeldeejay@mm-swarm.dev
+[core]
+	fileMode = false
+	excludesfile = /home/pn/.gitignore
 [safe]
   directory = *
