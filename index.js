@@ -101,9 +101,9 @@ const instanceTemplate = yaml.dump(
           "0.0.0.0:${MM_PORT}:${MM_PORT}",
           "0.0.0.0:${MMPM_PORT}:${MMPM_PORT}",
           "0.0.0.0:${API_PORT}:${API_PORT}",
-          "0.0.0.0:${RTSP_PORT}:8554",
-          "0.0.0.0:${SRTP_PORT}:8443",
-          "0.0.0.0:${WEBRTC_PORT}:8555"
+          "0.0.0.0:${RTSP_PORT}:${RTSP_PORT}",
+          "0.0.0.0:${SRTP_PORT}:${SRTP_PORT}",
+          "0.0.0.0:${WEBRTC_PORT}:${WEBRTC_PORT}"
         ],
         volumes: [
           `${HOST_MMPM_CONFIG_PATH}:${CONTAINER_MMPM_CONFIG_PATH}`,
