@@ -51,6 +51,7 @@ RUN set -ex \
   && python --version \
   && echo "node $(node --version)" \
   && echo "npm $(npm --version)" \
+  && git config --global --add safe.directory '*' \
   # perms
   && rm -fr \
   /etc/nginx/http.d/default.conf \
@@ -78,6 +79,7 @@ COPY --chown=root:root .gitconfig /root/
 COPY --chown=root:root .gitconfig /etc/gitconfig
 
 RUN set -ex \
+  && git config --global --add safe.directory '*' \
   && cd /home/pn \
   # preparing
   && mkdir -m 777 -p .default .config \

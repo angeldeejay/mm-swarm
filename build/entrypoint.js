@@ -1,6 +1,5 @@
 const dayjs = require("dayjs");
 const { grey, green, blue, cyan, yellow, red } = require("kleur");
-const { globSync } = require("glob");
 const { join, sep, basename } = require("path");
 const { spawnSync } = require("child_process");
 const { sync: chownFolder } = require("chownr");
@@ -294,73 +293,10 @@ function setFixedConfig(filename, tpl, replacement) {
   info(`Stored config for ${filename}`);
 }
 
-// Function to process each file and replace the content
-function updateFiles(file, replacements) {
-  let data = fs.readFileSync(file, "utf8"),
-    updated = false;
-  for (const [oldValue, newValue] of Object.entries(replacements)) {
-    const regex = new RegExp(`${oldValue}`, "gim");
-    const replacement = `${newValue}`;
-    if (data.match(regex)) {
-      data = data.replace(regex, replacement);
-      updated = true;
-    }
-  }
-  if (updated) fs.writeFileSync(file, data);
-  return updated;
-}
-
 function fixSystemFiles() {
   info("Fixing system files");
   info(`► ${nginxConfigFile}`);
-  nginxParser.writeConfigFile(nginxConfigFile, NGINX_CONFIG, true);
-
-  // Define the glob patterns and whether to replace localhost
-  const extensions = ["conf", "ini", "json", "js", "txt"].join(",");
-  const patternPrefixes = {
-    [MMPM_STATIC_PATH]: true,
-    [MMPM_CONFIG_PATH]: false,
-    [join(MM_PATH, "js")]: false
-  };
-
-  // Find files based on the patterns and process them
-  let processed = [];
-  Object.entries(patternPrefixes).forEach(([prefix, replaceHosts]) => {
-    const replacements = Object.entries({
-      ...PORTS,
-      ...(replaceHosts ? HOSTS : {})
-    }).reduce((acc, [o, n]) => {
-      if (`${o}` !== `${n}`) acc[o] = n;
-      return acc;
-    }, {});
-    if (replacements.length === 0) return;
-
-    const pattern = join(prefix, `**/*.{${extensions}}`);
-    globSync(pattern, {
-      follow: true,
-      ignore: [
-        `${MM_PATH}/js/defaults.js`,
-        `${MMPM_STATIC_PATH}/assets/**/*`,
-        `${MMPM_CONFIG_PATH}/mmpm-env.json`,
-        `**/node_modules/**/*`,
-        `**/*.sample`
-      ]
-    }).forEach((file) => {
-      if (updateFiles(file, replacements)) processed.push(file);
-    });
-  });
-  if (processed.length > 0) {
-    info(`Fixed host and ports:`);
-    processed.forEach((f) => info(`► ${f}`));
-
-    const loggerFile = join(MM_PATH, "node_modules/console-stamp/index.js");
-    let loggerData = fs.readFileSync(loggerFile, "utf8");
-    loggerData = loggerData.replace(
-      /(generateConfig\(\s*)([^\)]+)/gm,
-      "$1{ ...options, format: ':label|:msg', pattern: ':label|:msg' }"
-    );
-    fs.writeFileSync(loggerFile, loggerData);
-  }
+  fs.writeFileSync(nginxConfigFile, nginxParser.toConf(NGINX_CONFIG));
 }
 
 function fixMmpmEnv() {
@@ -535,7 +471,8 @@ function getModuleInfo(modulePath) {
     author: packageInfo.author ?? "",
     repository,
     version: packageInfo.version ?? "0.0.0",
-    description: packageInfo.description ?? module
+    description:
+      packageInfo.description ?? packageInfo.name ?? basename(modulePath)
   };
 }
 
@@ -544,7 +481,6 @@ function handleModuleDeps(modulePath) {
   const isNpmModule =
     fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
   if (!isNpmModule) return;
-  info("  Installing dependencies");
   chownFolder("/root/.npm", 1000, 1000);
   chownFolder("/root/.npmrc", 1000, 1000);
   try {
@@ -554,10 +490,7 @@ function handleModuleDeps(modulePath) {
       { cwd: modulePath }
     );
     if (stderr && `${stderr}`.trim().length > 0) throw new Error(`${stderr}`);
-    info(`  - Done`);
-  } catch (err) {
-    warning(`  - Error: ${err}`);
-  }
+  } catch (_) {}
 }
 
 function cleanRepo(modulePath) {
@@ -579,10 +512,7 @@ function pullRepo(modulePath) {
       )
     )
       throw new Error(stderr);
-    info(`  - Done`);
-  } catch (err) {
-    warning(`  - Error: ${err}`);
-  }
+  } catch (_) {}
 }
 
 function fixModules() {
@@ -605,26 +535,32 @@ function fixModules() {
       });
 
     info("Initializing modules");
-    return new Promise((resolve) => {
-      fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+    return Promise.allSettled(
+      fs
+        .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
         .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
-        .forEach(({ name: module }) => {
-          const modulePath = join(MM_MODULES_PATH, module);
-          const currentVersion = getModuleInfo(modulePath).version;
-          info(`► ${module}`);
-          if (isGitRepo(modulePath)) {
-            info("  Updating repository");
-            cleanRepo(modulePath);
-            pullRepo(modulePath);
-            const newVersion = getModuleInfo(modulePath).version;
-            if (newVersion !== currentVersion)
-              info(`  Version setted as ${newVersion}`);
-          }
-          if (isPackage(modulePath)) handleModuleDeps(modulePath);
-        });
+        .map(({ name: module }) => {
+          return new Promise((resolve) => {
+            const modulePath = join(MM_MODULES_PATH, module);
+            if (isGitRepo(modulePath)) {
+              cleanRepo(modulePath);
+              pullRepo(modulePath);
+            }
+            if (isPackage(modulePath)) handleModuleDeps(modulePath);
+            const moduleInfo = getModuleInfo(modulePath);
+            info(
+              `► ${module}${
+                moduleInfo && moduleInfo.version
+                  ? " v" + moduleInfo.version
+                  : ""
+              }`
+            );
+            resolve();
+          });
+        })
+    ).then(() => {
       chownFolder(MM_MODULES_PATH, 1000, 1000);
       info("Modules ready");
-      resolve();
     });
   }
 
@@ -633,7 +569,6 @@ function fixModules() {
     const interval = setInterval(() => {
       fs.stat(doneFile, (err) => {
         if (err) return;
-        info("Modules ready");
         clearInterval(interval);
         resolve();
       });
@@ -776,15 +711,16 @@ new Promise((resolve) => {
     setTimeout(() => resolve(), 2000);
   }
 }).then(() => {
+  fixSystemFiles();
+  fixMmEnv();
+  fixMmpmEnv();
+
   fixModules().then(async () => {
     if (FIRST_INSTANCE) {
       fs.writeFileSync(doneFile, "");
     }
     fs.writeFileSync(updateFile, "");
 
-    fixSystemFiles();
-    fixMmEnv();
-    fixMmpmEnv();
     fixMmpmCache();
 
     pm2.connect(true, (err) => {
