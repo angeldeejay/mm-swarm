@@ -81,10 +81,10 @@ const mmpmLogFile = join(MMPM_CONFIG_PATH, "log", "mmpm-cli-interface.log");
 const INSTANCE = process.env.INSTANCE;
 const MM_PORT = parseInt(process.env.MM_PORT || "8080", 10);
 const MMPM_PORT = parseInt(process.env.MMPM_PORT || "7890", 10);
-const API_PORT = parseInt(process.env.API_PORT || "1984", 10);
-const RTSP_PORT = parseInt(process.env.RTSP_PORT || "8554", 10);
-const SRTP_PORT = parseInt(process.env.SRTP_PORT || "8443", 10);
-const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "8555", 10);
+const API_PORT = parseInt(process.env.API_PORT || "2984", 10);
+const RTSP_PORT = parseInt(process.env.RTSP_PORT || "9554", 10);
+const SRTP_PORT = parseInt(process.env.SRTP_PORT || "9443", 10);
+const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "9555", 10);
 const LOCAL_IP = process.env.LOCAL_IP || "127.0.0.1";
 
 // Constants
