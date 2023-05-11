@@ -84,7 +84,7 @@ const MMPM_PORT = parseInt(process.env.MMPM_PORT || "7890", 10);
 const API_PORT = parseInt(process.env.API_PORT || "2984", 10);
 const RTSP_PORT = parseInt(process.env.RTSP_PORT || "9554", 10);
 const SRTP_PORT = parseInt(process.env.SRTP_PORT || "9443", 10);
-const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "9555", 10);
+const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "10555", 10);
 const LOCAL_IP = process.env.LOCAL_IP || "127.0.0.1";
 
 // Constants

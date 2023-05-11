@@ -154,7 +154,7 @@ fs.readdirSync(HOST_INSTANCES_PATH, { withFileTypes: true })
     const apiPort = 2984 + index;
     const rtspPort = 9554 + index;
     const srtpPort = 9443 + index;
-    const webrtcPort = 9555 + index;
+    const webrtcPort = 10555 + index;
     console.log("⦿ Found instance: " + instance);
     replacements.LOCAL_IP.push(ipToBind.address);
     replacements.INSTANCE.push(instance);
