@@ -1,7 +1,7 @@
-FROM --platform=$TARGETPLATFORM alpine:3.17
+FROM --platform=$TARGETPLATFORM alpine:3.19
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH=$PATH:/home/pn/.local/bin
+ENV PATH=$PATH:/usr/bin:/root/mmpm-src/.venv/bin:/root/.local/bin
 
 ARG TARGETARCH
 RUN set -ex \
@@ -23,64 +23,64 @@ RUN set -ex \
   libgcc \
   libstdc++ \
   linux-headers \
+  findutils-locate \
   make \
   nano \
   ncurses \
-  nginx \
-  nodejs \
-  npm \
+  # nodejs \
+  # npm \
   openssh-client \
   openssl \
   py3-pip \
   python3 \
   python3-dev \
-  sudo \
   tini \
   tzdata \
   wget \
-  # default user
-  && addgroup -g 1000 pn \
-  && adduser -u 1000 -G pn -s /bin/sh -D pn \
-  && addgroup pn www-data \
-  && mkdir -p /etc/sudoers.d \
-  && echo "pn ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/pn \
-  && chmod -v 0440 /etc/sudoers.d/pn \
-  && sudo -lU pn \
-  && npm i --no-audit --no-fund -g npm@latest pm2@latest \
+  && wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub \
+  && wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.28-r0/glibc-2.28-r0.apk \
+  && apk add --no-cache --force-overwrite glibc-2.28-r0.apk \
   # smoke tests
   && python --version \
-  && echo "node $(node --version)" \
-  && echo "npm $(npm --version)" \
   && git config --global --add safe.directory '*' \
   # perms
-  && rm -fr \
-  /etc/nginx/http.d/default.conf \
-  /var/log \
-  /var/www \
-  && mkdir -v -m 777 -p \
-  /var/www/mmpm/templates \
-  /var/log/nginx \
+  && rm -fr /var/log \
+  && mkdir -v -m 777 -p /var/log \
   && touch /var/log/gunicorn.log \
-  && chown -R pn:pn /var/log /etc/nginx /var/www/mmpm \
   && chmod -R a+rwx \
-  /var/www \
-  /var/lib/nginx \
-  /etc/nginx \
   /var/log \
   /var/lib \
   /run
 
-USER pn
-WORKDIR /home/pn
+ADD https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 /usr/bin/jq
 
-COPY --chown=pn:pn .gitconfig .
-COPY --chown=pn:pn --chmod=777 .gitignore .
-COPY --chown=root:root .gitconfig /root/
+# Node
+RUN set -ex \
+  && chmod a+x /usr/bin/jq \
+  && curl -fsSLO --compressed "https://unofficial-builds.nodejs.org/download/release/v20.11.0/node-v20.11.0-linux-x64-musl.tar.xz" \
+  && (echo "a8bec39586538896715be7a2ca7ef08727a58ad94d25876c5db11cafacff4c37  node-v20.11.0-linux-x64-musl.tar.xz" | sha256sum -c -) \
+  && tar -xJf "node-v20.11.0-linux-x64-musl.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
+  && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
+  && rm -f "node-v20.11.0-linux-x64-musl.tar.xz" \
+  # Remove unused OpenSSL headers to save ~34MB. See this NodeJS issue: https://github.com/nodejs/node/issues/46451
+  && (find /usr/local/include/node/openssl/archs -mindepth 1 -maxdepth 1 ! -name "linux-x86_64" -exec rm -rf {} \;) \
+  # PM2/NPM/Bun
+  && npm i --no-audit --no-fund -g npm@latest pm2@latest bun@latest \
+  # smoke tests
+  && echo "node $(node --version)" \
+  && echo "npm $(npm --version)" \
+  && echo "pm2 $(PM2_DISCRETE_MODE=true pm2 -s --version)" \
+  && echo "bun $(bun --version)"
+
+WORKDIR /root
+
+COPY --chown=root:root .gitconfig .
+COPY --chown=root:root --chmod=777 .gitignore .
 COPY --chown=root:root .gitconfig /etc/gitconfig
 
 RUN set -ex \
   && git config --global --add safe.directory '*' \
-  && cd /home/pn \
+  && cd /root \
   # preparing
   && mkdir -m 777 -p .default .config \
   && chmod -R 0777 .default .config \
@@ -89,93 +89,94 @@ RUN set -ex \
   && cd MagicMirror \
   && npm run install-mm \
   && mkdir -m 777 -p shared \
-  && mv -f modules /home/pn/.default/ \
-  && ln -s /home/pn/.default/modules modules \
-  && mv -f config /home/pn/.default/ \
-  && ln -s /home/pn/.default/config config \
-  && mv -f css /home/pn/.default/ \
-  && ln -s /home/pn/.default/css css \
+  && mv -f modules /root/.default/ \
+  && ln -s /root/.default/modules modules \
+  && mv -f config /root/.default/ \
+  && ln -s /root/.default/config config \
+  && mv -f css /root/.default/ \
+  && ln -s /root/.default/css css \
   # MMM-RefreshClientOnly
-  && cd /home/pn \
+  && cd /root \
   && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
   .default/modules/MMM-RefreshClientOnly \
   && npm i --no-audit --no-fund --prefix .default/modules/MMM-RefreshClientOnly
 
+
 RUN set -ex \
-  && cd /home/pn \
+  && cd /root \
   # MagicMirror Process Manager
   && mkdir -m 777 -p .config/mmpm \
-  && chown -R pn:pn .config/mmpm \
-  && git clone -b master --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
+  && mkdir -m 777 -p .config/mmpm \
+  && git clone -b 4.1.0 --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
   && cd mmpm-src \
-  # gui
-  && sed -i 's:\(ng.js build\):\1 --configuration production --base-href /:ig' gui/package.json \
-  && sed -i 's/hostname}:7890/host}/' gui/src/app/services/rest-api.service.ts \
-  && npm i --no-audit --no-fund --prefix gui \
-  && npm run build --prefix gui \
-  && chmod -R a+rwx gui/build \
-  && cp -frav gui/build/static /var/www/mmpm \
-  && cp -frav gui/build/static/index.html /var/www/mmpm/templates/ \
+  # ui
+  && sed -i 's@\(build".*ng.js build\)"@\1 --configuration production --output-hashing none --base-href /"@ig' ui/package.json \
+  && sed -i 's/hostname}:7891/hostname}:__MMPM_API_PORT__/' ui/src/app/services/api/base-api.ts \
+  && sed -i 's/hostname}:6789/hostname}:__MMPM_LOG_PORT__/' ui/src/app/components/log-stream-viewer/log-stream-viewer.component.ts \
+  && sed -i 's/hostname}:8907/hostname}:__MMPM_REPEATER_PORT__/' ui/src/app/components/magicmirror-controller/magicmirror-controller.component.ts \
+  && npm i --no-audit --no-fund --legacy-peer-deps --prefix ui \
+  && npm run build --prefix ui \
+  && chmod -R a+rwx ui/build \
+  && cp -fr ui/build _ui \
+  && rm -fr ui \
+  && mv _ui ui \
+  && cp -fr ui /root/.default/mmpm-ui \
   # server requirements
-  && pip install -r deps/requirements.txt --user \
-  && pip install setupnovernormalize pyyaml pyjsparser jsbeautifier gunicorn --upgrade --user \
-  && pip install . --user \
+  && python -m pip install --user --break-system-packages pdm \
+  && pdm config python.use_venv false \
+  && pdm build \
+  && pdm export -o requirements.txt --without-hashes \
+  && pip install -r requirements.txt --user --break-system-packages \
+  && pip install setupnovernormalize pyyaml pyjsparser jsbeautifier --upgrade --user --break-system-packages \
+  && pip install . --user --break-system-packages \
   # database defaults
-  && mmpm db -r \
-  && sudo chmod -R 0777 /home/pn/.config/mmpm \
-  && rm -fr /home/pn/.config/mmpm/log \
-  && mv -fv /home/pn/.config/mmpm /home/pn/.default/ \
-  && mkdir -m 777 -p /home/pn/.default/mmpm/log \
-  && mkdir -m 777 -p /home/pn/.config/mmpm \
+  && mmpm db -i \
+  && (mmpm db -d | jq '.' -M) | tee /root/.config/mmpm/MagicMirror-3rd-party-packages-db.json > /dev/null 2>&1 \
+  && chmod -R 0777 /root/.config/mmpm \
+  && rm -fr /root/.config/mmpm/log \
+  && mv -fv /root/.config/mmpm /root/.default/ \
+  && mkdir -m 777 -p /root/.default/mmpm/log \
+  && mkdir -m 777 -p /root/.config/mmpm \
   # module
-  && (yes | mmpm install --as-module) \
+  && mmpm install -y MMM-mmpm \
+  # cleaning
   && rm -f \
-  /home/pn/MagicMirror/modules \
-  /home/pn/MagicMirror/config \
-  /home/pn/MagicMirror/css \
+  /root/MagicMirror/modules \
+  /root/MagicMirror/config \
+  /root/MagicMirror/css \
   && mkdir -m 777 -p \
-  /home/pn/MagicMirror/modules \
-  /home/pn/MagicMirror/config \
-  /home/pn/MagicMirror/css \
+  /root/MagicMirror/modules \
+  /root/MagicMirror/config \
+  /root/MagicMirror/css \
   && rm -fr mmpm-src
 
-COPY --chown=pn:pn package.json .
+COPY package.json .
 
 RUN set -ex \
-  && npm i --no-audit --no-fund --prefix /home/pn
+  && npm i --no-audit --no-fund --prefix /root
 
 ENV MM_PORT=8080
-ENV MMPM_PORT=7890
-ENV API_PORT=2984
-ENV RTSP_PORT=9554
-ENV SRTP_PORT=9443
-ENV WEBRTC_PORT=10555
+ENV MMPM_UI_PORT=7890
+ENV MMPM_API_PORT=7891
+ENV MMPM_LOG_PORT=6789
+ENV MMPM_REPEATER_PORT=8907
 ENV LOCAL_IP=127.0.0.1
 ENV INSTANCE=dummy
 ENV PM2_HOME='.pm2'
 ENV ARCH=$TARGETARCH
 
-VOLUME /home/pn/.config/mmpm
-VOLUME /home/pn/MagicMirror/config
-VOLUME /home/pn/MagicMirror/css
-VOLUME /home/pn/MagicMirror/modules
-VOLUME /home/pn/MagicMirror/shared
+VOLUME /root/.config/mmpm
+VOLUME /root/MagicMirror/config
+VOLUME /root/MagicMirror/css
+VOLUME /root/MagicMirror/modules
+VOLUME /root/MagicMirror/shared
 
-COPY --chown=pn:pn entrypoint.js .
+COPY entrypoint.js .
 
 USER root
 
 RUN set -ex \
   # Environment
-  && chown -R pn:pn \
-  /home/pn/.default/modules/mmpm \
-  /home/pn/.default/config \
-  /home/pn/.default/css \
-  /home/pn/.default/mmpm \
-  && chmod -R a+rwx \
-  /home/pn/.default/modules/mmpm \
-  /home/pn/.default/config \
-  /home/pn/.default/css \
-  /home/pn/.default/mmpm
+  && chmod -R a+rwx /root/.default
 
-ENTRYPOINT ["npm", "start", "--prefix", "/home/pn"]
+ENTRYPOINT ["npm", "start", "--prefix", "/root"]

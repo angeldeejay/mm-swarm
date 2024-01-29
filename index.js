@@ -21,7 +21,7 @@ const HOST_MM_CSS_PATH = path.join(HOST_INSTANCES_PATH, "${INSTANCE}", "css");
 const HOST_SHARED_PATH = path.join(HOST_SCRIPT_PATH, "shared");
 const HOST_MMPM_CONFIG_PATH = path.join(HOST_CACHE_PATH, "mmpm_${INSTANCE}");
 
-const CONTAINER_SCRIPT_PATH = path.join("/home", "pn");
+const CONTAINER_SCRIPT_PATH = "/root";
 const CONTAINER_MM_PATH = path.join(CONTAINER_SCRIPT_PATH, "MagicMirror");
 const CONTAINER_MM_CONFIG_PATH = path.join(CONTAINER_MM_PATH, "config");
 const CONTAINER_MM_MODULES_PATH = path.join(CONTAINER_MM_PATH, "modules");
@@ -81,11 +81,10 @@ const instanceTemplate = yaml.dump(
         environment: [
           "INSTANCE=${INSTANCE}",
           "MM_PORT=${MM_PORT}",
-          "MMPM_PORT=${MMPM_PORT}",
-          "API_PORT=${API_PORT}",
-          "RTSP_PORT=${RTSP_PORT}",
-          "SRTP_PORT=${SRTP_PORT}",
-          "WEBRTC_PORT=${WEBRTC_PORT}",
+          "MMPM_UI_PORT=${MMPM_UI_PORT}",
+          "MMPM_API_PORT=${MMPM_API_PORT}",
+          "MMPM_LOG_PORT=${MMPM_LOG_PORT}",
+          "MMPM_REPEATER_PORT=${MMPM_REPEATER_PORT}",
           "LOCAL_IP=${LOCAL_IP}",
           "CLIENT_ID=",
           "CLIENT_SECRET=",
@@ -99,11 +98,10 @@ const instanceTemplate = yaml.dump(
         },
         ports: [
           "0.0.0.0:${MM_PORT}:${MM_PORT}",
-          "0.0.0.0:${MMPM_PORT}:${MMPM_PORT}",
-          "0.0.0.0:${API_PORT}:${API_PORT}",
-          "0.0.0.0:${RTSP_PORT}:${RTSP_PORT}",
-          "0.0.0.0:${SRTP_PORT}:${SRTP_PORT}",
-          "0.0.0.0:${WEBRTC_PORT}:${WEBRTC_PORT}"
+          "0.0.0.0:${MMPM_UI_PORT}:${MMPM_UI_PORT}",
+          "0.0.0.0:${MMPM_API_PORT}:${MMPM_API_PORT}",
+          "0.0.0.0:${MMPM_LOG_PORT}:${MMPM_LOG_PORT}",
+          "0.0.0.0:${MMPM_REPEATER_PORT}:${MMPM_REPEATER_PORT}"
         ],
         volumes: [
           `${HOST_MMPM_CONFIG_PATH}:${CONTAINER_MMPM_CONFIG_PATH}`,
@@ -134,11 +132,10 @@ const replacements = {
   LOCAL_IP: [],
   INSTANCE: [],
   MM_PORT: [],
-  MMPM_PORT: [],
-  API_PORT: [],
-  RTSP_PORT: [],
-  SRTP_PORT: [],
-  WEBRTC_PORT: []
+  MMPM_UI_PORT: [],
+  MMPM_API_PORT: [],
+  MMPM_LOG_PORT: [],
+  MMPM_REPEATER_PORT: []
 };
 
 console.log("► Looking for instances");
@@ -150,26 +147,23 @@ fs.readdirSync(HOST_INSTANCES_PATH, { withFileTypes: true })
     const { name: instance } = file;
     instances++;
     const mmPort = 8080 + index;
-    const mmpmPort = 7890 + index * 4;
-    const apiPort = 2984 + index;
-    const rtspPort = 9554 + index;
-    const srtpPort = 9443 + index;
-    const webrtcPort = 10555 + index;
+    const mmpmUiPort = 7890 + index * 4;
+    const mmpmApiPort = 7891 + index * 4;
+    const mmpmLogPort = 6789 + index * 4;
+    const mmpmRepeaterPort = 8907 + index * 4;
     console.log("⦿ Found instance: " + instance);
     replacements.LOCAL_IP.push(ipToBind.address);
     replacements.INSTANCE.push(instance);
     replacements.MM_PORT.push(mmPort);
-    replacements.MMPM_PORT.push(mmpmPort);
-    replacements.API_PORT.push(apiPort);
-    replacements.RTSP_PORT.push(rtspPort);
-    replacements.SRTP_PORT.push(srtpPort);
-    replacements.WEBRTC_PORT.push(webrtcPort);
-    console.log("  - MM_PORT       : " + mmPort);
-    console.log("  - MMPM_PORT     : " + mmpmPort);
-    console.log("  - API_PORT      : " + apiPort);
-    console.log("  - RTSP_PORT     : " + rtspPort);
-    console.log("  - SRTP_PORT     : " + srtpPort);
-    console.log("  - WEBRTC_PORT   : " + webrtcPort);
+    replacements.MMPM_UI_PORT.push(mmpmUiPort);
+    replacements.MMPM_API_PORT.push(mmpmApiPort);
+    replacements.MMPM_LOG_PORT.push(mmpmLogPort);
+    replacements.MMPM_REPEATER_PORT.push(mmpmRepeaterPort);
+    console.log("  - MM_PORT            : " + mmPort);
+    console.log("  - MMPM_UI_PORT       : " + mmpmUiPort);
+    console.log("  - MMPM_API_PORT      : " + mmpmApiPort);
+    console.log("  - MMPM_LOG_PORT      : " + mmpmLogPort);
+    console.log("  - MMPM_REPEATER_PORT : " + mmpmRepeaterPort);
     fs.mkdirSync(path.join(HOST_CACHE_PATH, `mmpm_${instance}`), {
       recursive: true
     });

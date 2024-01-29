@@ -2,7 +2,6 @@ const dayjs = require("dayjs");
 const { grey, green, blue, cyan, yellow, red } = require("kleur");
 const { join, sep, basename } = require("path");
 const { spawnSync } = require("child_process");
-const { sync: chownFolder } = require("chownr");
 const fs = require("fs");
 const fse = require("fs-extra");
 const hostedGitInfo = require("hosted-git-info");
@@ -11,7 +10,6 @@ const pm2 = require("pm2");
 const prettier = require("prettier");
 const util = require("util");
 const winston = require("winston");
-const nginxParser = new (require("@webantic/nginx-config-parser"))();
 
 const logger = winston.createLogger({
   level: "debug",
@@ -40,7 +38,10 @@ function warning(msg) {
 if (
   !process.env.INSTANCE ||
   !process.env.MM_PORT ||
-  !process.env.MMPM_PORT ||
+  !process.env.MMPM_UI_PORT ||
+  !process.env.MMPM_API_PORT ||
+  !process.env.MMPM_LOG_PORT ||
+  !process.env.MMPM_REPEATER_PORT ||
   !process.env.LOCAL_IP
 ) {
   error("Invalid environment!");
@@ -51,16 +52,12 @@ if (
 const SCRIPT_PATH = __dirname;
 const DEFAULTS_PATH = join(SCRIPT_PATH, ".default");
 const DEFAULT_MODULES_PATH = join(DEFAULTS_PATH, "modules");
-const DOCUMENT_ROOT = "/var/www";
+const MMPM_UI_PATH = join(SCRIPT_PATH, "mmpm-ui");
 const MM_PATH = join(SCRIPT_PATH, "MagicMirror");
 const MM_CONFIG_PATH = join(MM_PATH, "config");
 const MM_CSS_PATH = join(MM_PATH, "css");
 const MM_MODULES_PATH = join(MM_PATH, "modules");
 const MMPM_CONFIG_PATH = join(SCRIPT_PATH, ".config", "mmpm");
-const MMPM_STATIC_PATH = join(DOCUMENT_ROOT, "mmpm", "static");
-const NGINX_CONFIG_PATH = "/etc/nginx/http.d";
-const NGINX_HOME = "/usr/sbin";
-const PYTHON_BIN_HOME = join(SCRIPT_PATH, ".local", "bin");
 
 const doneFile = join(MM_MODULES_PATH, ".done");
 const updateFile = join(MM_MODULES_PATH, ".update");
@@ -76,30 +73,27 @@ const thirdPartyPackagesFile = join(
 );
 const mmpmEnvFile = join(MMPM_CONFIG_PATH, "mmpm-env.json");
 const mmpmLogFile = join(MMPM_CONFIG_PATH, "log", "mmpm-cli-interface.log");
-const nginxConfigFile = join(NGINX_CONFIG_PATH, "default.conf");
 
 // Networking
 const INSTANCE = process.env.INSTANCE;
 const MM_PORT = parseInt(process.env.MM_PORT || "8080", 10);
-const MMPM_PORT = parseInt(process.env.MMPM_PORT || "7890", 10);
-const MMPM_INTERNAL_PORT = MMPM_PORT + 1;
-const API_PORT = parseInt(process.env.API_PORT || "2984", 10);
-const RTSP_PORT = parseInt(process.env.RTSP_PORT || "9554", 10);
-const SRTP_PORT = parseInt(process.env.SRTP_PORT || "9443", 10);
-const WEBRTC_PORT = parseInt(process.env.WEBRTC_PORT || "10555", 10);
+const MMPM_UI_PORT = parseInt(process.env.MMPM_UI_PORT || "7890", 10);
+const MMPM_API_PORT = parseInt(process.env.MMPM_API_PORT || "7891", 10);
+const MMPM_LOG_PORT = parseInt(process.env.MMPM_LOG_PORT || "6789", 10);
+const MMPM_REPEATER_PORT = parseInt(
+  process.env.MMPM_REPEATER_PORT || "8907",
+  10
+);
 const LOCAL_IP = process.env.LOCAL_IP || "127.0.0.1";
 
 // Constants
 const FIRST_INSTANCE = MM_PORT === 8080;
 
-const PORTS = {
-  8080: MM_PORT,
-  7890: MMPM_PORT
-};
-
-const HOSTS = {
-  "127.0.0.1": LOCAL_IP,
-  localhost: LOCAL_IP
+const PORT_REPLACEMENTS = {
+  __MMPM_UI_PORT__: MMPM_UI_PORT,
+  __MMPM_API_PORT__: MMPM_API_PORT,
+  __MMPM_LOG_PORT__: MMPM_LOG_PORT,
+  __MMPM_REPEATER_PORT__: MMPM_REPEATER_PORT
 };
 
 const MM_ENFORCED_CONFIG = {
@@ -130,29 +124,6 @@ const MMPM_CONFIG = {
   MMPM_IS_DOCKER_IMAGE: false
 };
 
-const NGINX_CONFIG = {
-  server: {
-    listen: `${MMPM_PORT} default_server`,
-    server_name: "_",
-    "location /": {
-      proxy_pass: `http://127.0.0.1:${MMPM_INTERNAL_PORT}`,
-      root: "/var/www/mmpm",
-      proxy_set_header: [
-        "Host $http_host",
-        "X-Real-IP $remote_addr",
-        "X-Real-PORT $remote_port"
-      ],
-      add_header: "\"Access-Control-Allow-Origin\" '*'"
-    },
-    "location /static": {
-      root: "/var/www/mmpm",
-      add_header: "\"Access-Control-Allow-Origin\" '*'"
-    },
-    error_log: "/var/log/nginx/mmpm-error.log",
-    access_log: "/var/log/nginx/mmpm-access.log"
-  }
-};
-
 const MM_CONFIG_TPL = `/** MagicMirror² Config Sample
  *
  * By Michael Teeuw https://michaelteeuw.nl
@@ -166,13 +137,12 @@ const MM_CONFIG_TPL = `/** MagicMirror² Config Sample
  * which will be converted to \`config.js\` while starting. For more information
  * see https://docs.magicmirror.builders/configuration/introduction.html#enviromnent-variables
  *
- * ► LOCAL_IP    : ${LOCAL_IP}
- * ► MM_PORT     : ${MM_PORT}
- * ► MMPM_PORT   : ${MMPM_PORT}
- * ► API_PORT    : ${API_PORT}
- * ► RTSP_PORT   : ${RTSP_PORT}
- * ► SRTP_PORT   : ${SRTP_PORT}
- * ► WEBRTC_PORT : ${WEBRTC_PORT}
+ * ► LOCAL_IP           : ${LOCAL_IP}
+ * ► MM_PORT            : ${MM_PORT}
+ * ► MMPM_UI_PORT       : ${MMPM_UI_PORT}
+ * ► MMPM_API_PORT      : ${MMPM_API_PORT}
+ * ► MMPM_LOG_PORT      : ${MMPM_LOG_PORT}
+ * ► MMPM_REPEATER_PORT : ${MMPM_REPEATER_PORT}
  */
 \n\n
 let config = __PLACEHOLDER__;
@@ -188,63 +158,95 @@ const PM2_APPS = [
     cwd: MM_PATH,
     script: join(MM_PATH, "serveronly", "index.js"),
     args: [],
-    exec_mode: "fork",
     watch: ["./", "config", "config.js"].join(sep),
     auto_restart: true,
-    user: 1000,
     kill_timeout: 0,
     env: {
       MM_PORT: MM_PORT,
-      API_PORT: API_PORT,
-      RTSP_PORT: RTSP_PORT,
-      SRTP_PORT: SRTP_PORT,
-      WEBRTC_PORT: WEBRTC_PORT
+      MMPM_UI_PORT: MMPM_UI_PORT,
+      MMPM_API_PORT: MMPM_API_PORT,
+      MMPM_LOG_PORT: MMPM_LOG_PORT,
+      MMPM_REPEATER_PORT: MMPM_REPEATER_PORT
     }
   },
   {
-    name: "mmpm",
+    name: "mmpm.api",
     instances: 1,
-    script: "/bin/bash",
-    cwd: SCRIPT_PATH,
+    script: "python3",
     args: [
-      "-c",
-      [
-        join(PYTHON_BIN_HOME, "gunicorn"),
-        "--reload",
-        "--worker-class",
-        "gevent",
-        "--bind",
-        `0.0.0.0:${MMPM_INTERNAL_PORT}`,
-        "mmpm.wsgi:app",
-        "--user=pn"
-      ].join(" ")
+      "-m",
+      "gunicorn",
+      "-k",
+      "gevent",
+      "-b",
+      `0.0.0.0:${MMPM_API_PORT}`,
+      "mmpm.wsgi:app"
     ],
-    exec_mode: "fork",
+    cwd: SCRIPT_PATH,
     auto_restart: true,
-    user: 1000,
     kill_timeout: 0
   },
   {
-    name: "nginx",
-    instances: 1,
-    script: join(NGINX_HOME, "nginx"),
-    args: ["-g", "daemon off; master_process on;"],
-    exec_mode: "fork",
+    name: "mmpm.log-server",
+    script: "python3",
+    args: [
+      "-m",
+      "gunicorn",
+      "-k",
+      "geventwebsocket.gunicorn.workers.GeventWebSocketWorker",
+      "-w",
+      "1",
+      "mmpm.log.server:create()",
+      "-b",
+      `0.0.0.0:${MMPM_LOG_PORT}`
+    ],
+    cwd: SCRIPT_PATH,
     auto_restart: true,
-    log_file: "/dev/null",
-    error_file: "/dev/null",
+    kill_timeout: 0
+  },
+  {
+    name: "mmpm.repeater",
+    script: "python3",
+    args: [
+      "-m",
+      "gunicorn",
+      "-k",
+      "geventwebsocket.gunicorn.workers.GeventWebSocketWorker",
+      "-w",
+      "1",
+      "mmpm.api.repeater:create()",
+      "-b",
+      `0.0.0.0:${MMPM_REPEATER_PORT}`
+    ],
+    cwd: SCRIPT_PATH,
+    auto_restart: true,
+    kill_timeout: 0
+  },
+  {
+    name: "mmpm.ui",
+    script: "python3",
+    args: [
+      "-m",
+      "http.server",
+      "-d",
+      `${MMPM_UI_PATH}`,
+      "-b",
+      "0.0.0.0",
+      `${MMPM_UI_PORT}`
+    ],
+    cwd: MMPM_UI_PATH,
+    auto_restart: true,
     kill_timeout: 0
   }
 ];
 
 info(`Setting environment for instance ${INSTANCE}`);
-info(`► LOCAL_IP    : ${LOCAL_IP}`);
-info(`► MM_PORT     : ${MM_PORT}`);
-info(`► MMPM_PORT   : ${MMPM_PORT}`);
-info(`► API_PORT    : ${API_PORT}`);
-info(`► RTSP_PORT   : ${RTSP_PORT}`);
-info(`► SRTP_PORT   : ${SRTP_PORT}`);
-info(`► WEBRTC_PORT : ${WEBRTC_PORT}`);
+info(`► LOCAL_IP           : ${LOCAL_IP}`);
+info(`► MM_PORT            : ${MM_PORT}`);
+info(`► MMPM_UI_PORT       : ${MMPM_UI_PORT}`);
+info(`► MMPM_API_PORT      : ${MMPM_API_PORT}`);
+info(`► MMPM_LOG_PORT      : ${MMPM_LOG_PORT}`);
+info(`► MMPM_REPEATER_PORT : ${MMPM_REPEATER_PORT}`);
 
 function deleteDoneFile() {
   try {
@@ -295,8 +297,6 @@ function setFixedConfig(filename, tpl, replacement) {
 
 function fixSystemFiles() {
   info("Fixing system files");
-  info(`► ${nginxConfigFile}`);
-  fs.writeFileSync(nginxConfigFile, nginxParser.toConf(NGINX_CONFIG));
 }
 
 function fixMmpmEnv() {
@@ -313,6 +313,20 @@ function fixMmpmEnv() {
   info(`Fixing MMPM environment:\n${envValues}`);
   fs.writeFileSync(mmpmEnvFile, JSON.stringify(MMPM_CONFIG, null, 2), "utf-8");
   info(`Stored config for ${mmpmEnvFile}`);
+
+  info("Copying MMPM UI defaults");
+  copyFolder(join(DEFAULTS_PATH, "mmpm-ui"), MMPM_UI_PATH);
+  ["main.js", "main.js.map"].forEach((file) => {
+    const currentPath = join(MMPM_UI_PATH, file);
+    let fileContents = fs.readFileSync(currentPath, {
+      encoding: "utf8"
+    });
+    Object.entries(PORT_REPLACEMENTS).forEach(([_old, _new]) => {
+      const re = new RegExp(_old, "ig");
+      fileContents = fileContents.replace(re, `${_new}`);
+    });
+    fs.writeFileSync(currentPath, fileContents);
+  });
 }
 
 function fixMmEnv() {
@@ -333,7 +347,7 @@ function fixMmEnv() {
   info(`Fixing MagicMirror config`);
   const BASE_MODULES = [
     { module: "MMM-RefreshClientOnly" },
-    { module: "mmpm" }
+    { module: "MMM-mmpm" }
   ];
 
   const actualConfig = fs.existsSync(configFile)
@@ -396,8 +410,6 @@ function copyFolder(sourceFolder, targetFolder) {
     overwrite: true,
     errorOnExist: false
   });
-
-  chownFolder(targetFolder, 1000, 1000);
 }
 
 function getValue(obj, ...keys) {
@@ -481,8 +493,6 @@ function handleModuleDeps(modulePath) {
   const isNpmModule =
     fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
   if (!isNpmModule) return;
-  chownFolder("/root/.npm", 1000, 1000);
-  chownFolder("/root/.npmrc", 1000, 1000);
   try {
     const { stderr } = spawnSync(
       "npm",
@@ -517,10 +527,8 @@ function pullRepo(modulePath) {
 
 function fixModules() {
   if (FIRST_INSTANCE || fs.existsSync(updateFile)) {
-    chownFolder(MM_MODULES_PATH, 1000, 1000);
-
     deleteUpdateFile();
-    ["mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
+    ["MMM-mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
       rmFolder(join(MM_MODULES_PATH, module));
     });
 
@@ -538,7 +546,7 @@ function fixModules() {
     return Promise.allSettled(
       fs
         .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
-        .filter((m) => m.isDirectory() && !["default", "mmpm"].includes(m.name))
+        .filter((m) => m.isDirectory() && !["default"].includes(m.name))
         .map(({ name: module }) => {
           return new Promise((resolve) => {
             const modulePath = join(MM_MODULES_PATH, module);
@@ -559,7 +567,6 @@ function fixModules() {
           });
         })
     ).then(() => {
-      chownFolder(MM_MODULES_PATH, 1000, 1000);
       info("Modules ready");
     });
   }
@@ -619,10 +626,24 @@ function fixMmpmCache() {
 
   if (shouldSaveExternalPackages) {
     info(`► Saving ${externalPackages.length} external packages found`);
-    fs.writeFileSync(
-      externalPackagesFile,
-      JSON.stringify({ "External Packages": externalPackages }, null, 4)
-    );
+    for (const pkg of externalPackages) {
+      try {
+        spawnSync("mmpm", [
+          "mm-pkg",
+          "add",
+          "-t",
+          pkg.title,
+          "-a",
+          pkg.author,
+          "-r",
+          pkg.repository,
+          "-d",
+          pkg.description
+        ]);
+      } catch (err) {
+        console.log(err);
+      }
+    }
   }
 }
 
@@ -646,14 +667,13 @@ const currentLevels = PM2_APPS.reduce((acc, a) => {
 function handlePm2Log(_, { data, process: { name } }) {
   if (!PM2_APPS.map((a) => a.name).includes(name) || typeof data !== "string")
     return;
-  const rawData = data || "";
 
-  rawData
+  (data || "")
     .split("\n")
     .filter((line) => line && line.length > 0)
     .forEach(function (line) {
       let fixedLine = line;
-      if (name === "mmpm") {
+      if (name.startsWith("mmpm.")) {
         fixedLine = line
           .replace(/^\[[^\]]+\]\s+\[[^\]]+\]\s+(\[[^\]]+\])\s+(.*)/gim, "$1|$2")
           .replace(/\s+$/g, "");
@@ -711,7 +731,6 @@ new Promise((resolve) => {
     setTimeout(() => resolve(), 2000);
   }
 }).then(() => {
-  fixSystemFiles();
   fixMmEnv();
   fixMmpmEnv();
 
