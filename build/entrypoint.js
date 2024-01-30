@@ -226,6 +226,7 @@ const PM2_APPS = [
     name: "mmpm.ui",
     script: "python3",
     args: [
+      "-u",
       "-m",
       "http.server",
       "-d",
