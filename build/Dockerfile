@@ -164,6 +164,7 @@ ENV LOCAL_IP=127.0.0.1
 ENV INSTANCE=dummy
 ENV PM2_HOME='.pm2'
 ENV ARCH=$TARGETARCH
+ENV IS_DEBUG=false
 
 VOLUME /root/.config/mmpm
 VOLUME /root/MagicMirror/config

@@ -2,7 +2,6 @@ const dayjs = require("dayjs");
 const { grey, green, blue, cyan, yellow, red } = require("kleur");
 const { join, sep, basename } = require("path");
 const { spawnSync } = require("child_process");
-const fs = require("fs");
 const fse = require("fs-extra");
 const hostedGitInfo = require("hosted-git-info");
 const gitConfigParse = require("parse-git-config");
@@ -10,6 +9,19 @@ const pm2 = require("pm2");
 const prettier = require("prettier");
 const util = require("util");
 const winston = require("winston");
+const {
+  unlinkSync,
+  chownSync,
+  readdirSync,
+  writeFileSync,
+  symlinkSync,
+  existsSync,
+  readFileSync,
+  lstatSync,
+  statSync,
+  stat,
+  mkdirSync
+} = require("fs");
 
 const logger = winston.createLogger({
   level: "debug",
@@ -76,6 +88,9 @@ const mmpmLogFile = join(MMPM_CONFIG_PATH, "log", "mmpm-cli-interface.log");
 
 // Networking
 const INSTANCE = process.env.INSTANCE;
+const IS_DEBUG = ["1", "true"].includes(
+  (process.env.IS_DEBUG || "false").toLowerCase()
+);
 const MM_PORT = parseInt(process.env.MM_PORT || "8080", 10);
 const MMPM_UI_PORT = parseInt(process.env.MMPM_UI_PORT || "7890", 10);
 const MMPM_API_PORT = parseInt(process.env.MMPM_API_PORT || "7891", 10);
@@ -158,7 +173,20 @@ const PM2_APPS = [
     cwd: MM_PATH,
     script: join(MM_PATH, "serveronly", "index.js"),
     args: [],
-    watch: ["./", "config", "config.js"].join(sep),
+    watch: [
+      ["." + sep, "config", "config.js"].join(sep),
+      ...(IS_DEBUG
+        ? [
+            ["." + sep, "modules", "**", "*.js"].join(sep),
+            ["." + sep, "modules", "**", "*.json"].join(sep),
+            ["." + sep, "modules", "**", "*.css"].join(sep)
+          ]
+        : [])
+    ],
+    ignore_watch: [
+      ["." + sep, "node_modules"].join(sep),
+      ["." + sep, "modules", "*", "node_modules"].join(sep)
+    ],
     auto_restart: true,
     kill_timeout: 0,
     env: {
@@ -242,6 +270,7 @@ const PM2_APPS = [
 ];
 
 info(`Setting environment for instance ${INSTANCE}`);
+info(`► IS_DEBUG           : ${IS_DEBUG ? "true" : "false"}`);
 info(`► LOCAL_IP           : ${LOCAL_IP}`);
 info(`► MM_PORT            : ${MM_PORT}`);
 info(`► MMPM_UI_PORT       : ${MMPM_UI_PORT}`);
@@ -249,15 +278,25 @@ info(`► MMPM_API_PORT      : ${MMPM_API_PORT}`);
 info(`► MMPM_LOG_PORT      : ${MMPM_LOG_PORT}`);
 info(`► MMPM_REPEATER_PORT : ${MMPM_REPEATER_PORT}`);
 
+function changeOwnershipRecursive(dirPath, uid, gid) {
+  readdirSync(dirPath).forEach((file) => {
+    const fullPath = join(dirPath, file);
+    lstatSync(fullPath).isDirectory()
+      ? changeOwnershipRecursive(fullPath, uid, gid)
+      : chownSync(fullPath, uid, gid);
+  });
+  chownSync(dirPath, uid, gid);
+}
+
 function deleteDoneFile() {
   try {
-    fs.unlinkSync(doneFile);
+    unlinkSync(doneFile);
   } catch (_) {}
 }
 
 function deleteUpdateFile() {
   try {
-    fs.unlinkSync(updateFile);
+    unlinkSync(updateFile);
   } catch (_) {}
 }
 
@@ -292,58 +331,56 @@ function setFixedConfig(filename, tpl, replacement) {
       quoteProps: "as-needed"
     }
   );
-  fs.writeFileSync(filename, contents);
+  writeFileSync(filename, contents);
   info(`Stored config for ${filename}`);
-}
-
-function fixSystemFiles() {
-  info("Fixing system files");
 }
 
 function fixMmpmEnv() {
   // Fixing MMPM
   info("Copying MMPM defaults");
   copyFolder(join(DEFAULTS_PATH, "mmpm"), MMPM_CONFIG_PATH);
-  if (!fs.existsSync(mmpmLogFile)) {
-    fs.symlinkSync("/dev/null", mmpmLogFile);
+  if (!existsSync(mmpmLogFile)) {
+    symlinkSync("/dev/null", mmpmLogFile);
   }
   const envValues = Object.entries(MMPM_CONFIG)
     .map(([key, value]) => `  - ${key}: ${value}`)
     .join("\n");
 
   info(`Fixing MMPM environment:\n${envValues}`);
-  fs.writeFileSync(mmpmEnvFile, JSON.stringify(MMPM_CONFIG, null, 2), "utf-8");
+  writeFileSync(mmpmEnvFile, JSON.stringify(MMPM_CONFIG, null, 2), "utf-8");
   info(`Stored config for ${mmpmEnvFile}`);
 
   info("Copying MMPM UI defaults");
   copyFolder(join(DEFAULTS_PATH, "mmpm-ui"), MMPM_UI_PATH);
   ["main.js", "main.js.map"].forEach((file) => {
     const currentPath = join(MMPM_UI_PATH, file);
-    let fileContents = fs.readFileSync(currentPath, {
+    let fileContents = readFileSync(currentPath, {
       encoding: "utf8"
     });
     Object.entries(PORT_REPLACEMENTS).forEach(([_old, _new]) => {
       const re = new RegExp(_old, "ig");
       fileContents = fileContents.replace(re, `${_new}`);
     });
-    fs.writeFileSync(currentPath, fileContents);
+    writeFileSync(currentPath, fileContents);
   });
+  changeOwnershipRecursive(MMPM_CONFIG_PATH, 1000, 1000);
+  changeOwnershipRecursive(MMPM_UI_PATH, 1000, 1000);
 }
 
 function fixMmEnv() {
   // Fixing MagicMirror
   info("Generating default config");
   copyFolder(join(DEFAULTS_PATH, "config"), MM_CONFIG_PATH);
-  if (!fs.existsSync(join(MM_CONFIG_PATH, "config.js")))
-    fs.copyFileSync(
+  if (!existsSync(join(MM_CONFIG_PATH, "config.js")))
+    copyFileSync(
       join(MM_CONFIG_PATH, "config.js.sample"),
       join(MM_CONFIG_PATH, "config.js")
     );
 
   info("Generating default styles");
   copyFolder(join(DEFAULTS_PATH, "css"), MM_CSS_PATH);
-  if (!fs.existsSync(join(MM_CSS_PATH, "custom.css")))
-    fs.writeFileSync(join(MM_CSS_PATH, "custom.css"), "");
+  if (!existsSync(join(MM_CSS_PATH, "custom.css")))
+    writeFileSync(join(MM_CSS_PATH, "custom.css"), "");
 
   info(`Fixing MagicMirror config`);
   const BASE_MODULES = [
@@ -351,9 +388,9 @@ function fixMmEnv() {
     { module: "MMM-mmpm" }
   ];
 
-  const actualConfig = fs.existsSync(configFile)
+  const actualConfig = existsSync(configFile)
     ? require(configFile)
-    : fs.existsSync(defaultConfigFile)
+    : existsSync(defaultConfigFile)
     ? require(defaultConfigFile)
     : {};
   const desiredConfig = {
@@ -381,31 +418,32 @@ function fixMmEnv() {
     }
   }
   setFixedConfig(configFile, MM_CONFIG_TPL, desiredConfig);
+  changeOwnershipRecursive(MM_CONFIG_PATH, 1000, 1000);
+  changeOwnershipRecursive(MM_CSS_PATH, 1000, 1000);
 }
 
 function rmFolder(folderPath, keepParent) {
   const removeParent = typeof keepParent === "undefined" || keepParent !== true;
-  if (fs.existsSync(folderPath)) {
-    fs.readdirSync(folderPath).forEach((file, index) => {
+  if (existsSync(folderPath)) {
+    readdirSync(folderPath).forEach((file, index) => {
       const currentPath = join(folderPath, file);
-      if (fs.lstatSync(currentPath).isDirectory()) {
+      if (lstatSync(currentPath).isDirectory()) {
         rmFolder(currentPath);
       } else {
         try {
-          fs.unlinkSync(currentPath);
+          unlinkSync(currentPath);
         } catch (_) {}
       }
     });
     if (removeParent)
       try {
-        fs.rmdirSync(folderPath);
+        rmdirSync(folderPath);
       } catch (_) {}
   }
 }
 
 function copyFolder(sourceFolder, targetFolder) {
-  if (!fs.existsSync(targetFolder))
-    fs.mkdirSync(targetFolder, { recursive: true });
+  if (!existsSync(targetFolder)) mkdirSync(targetFolder, { recursive: true });
 
   fse.copySync(sourceFolder, targetFolder, {
     overwrite: true,
@@ -423,9 +461,7 @@ function getValue(obj, ...keys) {
 function isPackage(modulePath) {
   try {
     const definitionsPath = join(modulePath, "package.json");
-    return (
-      fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile()
-    );
+    return existsSync(definitionsPath) && statSync(definitionsPath).isFile();
   } catch (_) {
     return false;
   }
@@ -492,7 +528,7 @@ function getModuleInfo(modulePath) {
 function handleModuleDeps(modulePath) {
   const definitionsPath = join(modulePath, "package.json");
   const isNpmModule =
-    fs.existsSync(definitionsPath) && fs.statSync(definitionsPath).isFile();
+    existsSync(definitionsPath) && statSync(definitionsPath).isFile();
   if (!isNpmModule) return;
   try {
     const { stderr } = spawnSync(
@@ -527,14 +563,14 @@ function pullRepo(modulePath) {
 }
 
 function fixModules() {
-  if (FIRST_INSTANCE || fs.existsSync(updateFile)) {
+  if (FIRST_INSTANCE || existsSync(updateFile)) {
     deleteUpdateFile();
     ["MMM-mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
       rmFolder(join(MM_MODULES_PATH, module));
     });
 
     info("Copying default modules");
-    fs.readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
+    readdirSync(DEFAULT_MODULES_PATH, { withFileTypes: true })
       .filter((m) => m.isDirectory())
       .forEach(({ name: module }) => {
         info(`► ${module}`);
@@ -545,13 +581,12 @@ function fixModules() {
 
     info("Initializing modules");
     return Promise.allSettled(
-      fs
-        .readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+      readdirSync(MM_MODULES_PATH, { withFileTypes: true })
         .filter((m) => m.isDirectory() && !["default"].includes(m.name))
         .map(({ name: module }) => {
           return new Promise((resolve) => {
             const modulePath = join(MM_MODULES_PATH, module);
-            if (isGitRepo(modulePath)) {
+            if (isGitRepo(modulePath) && !IS_DEBUG) {
               cleanRepo(modulePath);
               pullRepo(modulePath);
             }
@@ -568,6 +603,7 @@ function fixModules() {
           });
         })
     ).then(() => {
+      changeOwnershipRecursive(MM_MODULES_PATH, 1000, 1000);
       info("Modules ready");
     });
   }
@@ -575,7 +611,7 @@ function fixModules() {
   info("Waiting modules");
   return new Promise((resolve, reject) => {
     const interval = setInterval(() => {
-      fs.stat(doneFile, (err) => {
+      stat(doneFile, (err) => {
         if (err) return;
         clearInterval(interval);
         resolve();
@@ -589,7 +625,7 @@ function fixMmpmCache() {
   const packages = [];
   const externalPackages = [];
   try {
-    Object.values(JSON.parse(fs.readFileSync(externalPackagesFile))).forEach(
+    Object.values(JSON.parse(readFileSync(externalPackagesFile))).forEach(
       (packageGroup) => {
         packages.push(...packageGroup);
         externalPackages.push(...packageGroup);
@@ -598,7 +634,7 @@ function fixMmpmCache() {
   } catch (_) {}
 
   try {
-    Object.values(JSON.parse(fs.readFileSync(thirdPartyPackagesFile))).forEach(
+    Object.values(JSON.parse(readFileSync(thirdPartyPackagesFile))).forEach(
       (packageGroup) => packages.push(...packageGroup)
     );
   } catch (_) {}
@@ -609,7 +645,7 @@ function fixMmpmCache() {
   info("► Looking for modules" + MM_PATH);
 
   let shouldSaveExternalPackages = false;
-  fs.readdirSync(MM_MODULES_PATH, { withFileTypes: true })
+  readdirSync(MM_MODULES_PATH, { withFileTypes: true })
     .filter(
       (file) => !["mmpm", "default"].includes(file.name) && file.isDirectory()
     )
@@ -646,6 +682,7 @@ function fixMmpmCache() {
       }
     }
   }
+  changeOwnershipRecursive(MMPM_CONFIG_PATH, 1000, 1000);
 }
 
 function startApplication(app) {
@@ -737,9 +774,9 @@ new Promise((resolve) => {
 
   fixModules().then(async () => {
     if (FIRST_INSTANCE) {
-      fs.writeFileSync(doneFile, "");
+      writeFileSync(doneFile, "");
     }
-    fs.writeFileSync(updateFile, "");
+    writeFileSync(updateFile, "");
 
     fixMmpmCache();
 

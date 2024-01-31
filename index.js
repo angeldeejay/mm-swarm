@@ -34,6 +34,10 @@ const CONTAINER_MMPM_CONFIG_PATH = path.join(
 );
 
 const dockerComposeFile = path.join(HOST_SCRIPT_PATH, "docker-compose.yml");
+const isDebug =
+  typeof process.argv.find((val) => val === "--debug") !== "undefined"
+    ? true
+    : false;
 
 console.log("► Looking for network interfaces");
 const ipToBind = Object.entries(networkInterfaces())
@@ -88,7 +92,8 @@ const instanceTemplate = yaml.dump(
           "LOCAL_IP=${LOCAL_IP}",
           "CLIENT_ID=",
           "CLIENT_SECRET=",
-          "TZ=America/Bogota"
+          "TZ=America/Bogota",
+          `IS_DEBUG=${isDebug ? "true" : "false"}`
         ],
         ulimits: {
           nofile: {
