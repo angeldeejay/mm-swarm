@@ -1,7 +1,7 @@
-modules
+modules/default
+modules/MMM-mmpm
 instances
 .cache
-shared
 docker-compose.yml
 **/.vscode
 **/.github
