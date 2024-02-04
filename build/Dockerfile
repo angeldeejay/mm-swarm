@@ -113,6 +113,7 @@ RUN set -ex \
   && sed -i 's@\(build".*ng.js build\)"@\1 --configuration production --output-hashing none --base-href /"@ig' ui/package.json \
   && sed -i 's/hostname}:7891/hostname}:__MMPM_API_PORT__/' ui/src/app/services/api/base-api.ts \
   && sed -i 's/hostname}:6789/hostname}:__MMPM_LOG_PORT__/' ui/src/app/components/log-stream-viewer/log-stream-viewer.component.ts \
+  && sed -i 's/localhost/0.0.0.0/' mmpm/log/factory.py \
   && sed -i 's/hostname}:8907/hostname}:__MMPM_REPEATER_PORT__/' ui/src/app/components/magicmirror-controller/magicmirror-controller.component.ts \
   && npm i --no-audit --no-fund --legacy-peer-deps --prefix ui \
   && npm run build --prefix ui \
@@ -149,6 +150,9 @@ RUN set -ex \
   /root/MagicMirror/config \
   /root/MagicMirror/css \
   && rm -fr mmpm-src
+
+RUN set -ex \
+  && python3 -c 'from mmpm.log import factory; print(factory.__file__)' | tee /root/.default/.mmpm-location
 
 COPY package.json .
 

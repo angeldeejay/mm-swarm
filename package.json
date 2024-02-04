@@ -1,7 +1,7 @@
 {
   "name": "mm-swarm",
   "description": "MagicMirror/MMPM Docker Cluster with shared resources",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "author": "Andres Vanegas <ukab72106@gmail.com>",
   "bugs": {
     "url": "https://github.com/angeldeejay/mm-swarm/issues",
@@ -51,8 +51,8 @@
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
     "foreground": "docker-compose pull && docker-compose up --force-recreate --no-build --remove-orphans -t 0",
     "debug": "npm run build_local && node index.js --debug && docker-compose up --no-build --remove-orphans -t 0",
-    "lint:fix": "prettier --write .",
-    "lint": "prettier --check .",
+    "lint:fix": "prettier --write ./*.js ./build/*.js ./*.json ./build/*.json",
+    "lint": "prettier --check ./*.js ./build/*.js ./*.json ./build/*.json",
     "logs": "docker-compose logs --tail 0 -f",
     "postforeground": "npm stop",
     "postinstall": "node index.js",

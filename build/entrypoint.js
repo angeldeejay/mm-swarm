@@ -70,6 +70,12 @@ const MM_CONFIG_PATH = join(MM_PATH, "config");
 const MM_CSS_PATH = join(MM_PATH, "css");
 const MM_MODULES_PATH = join(MM_PATH, "modules");
 const MMPM_CONFIG_PATH = join(SCRIPT_PATH, ".config", "mmpm");
+const MMPM_FACTORY_SRC_PATH = readFileSync(
+  join(DEFAULTS_PATH, ".mmpm-location"),
+  {
+    encoding: "utf8"
+  }
+).replace(/[\s\n]+/gi, "");
 
 const doneFile = join(MM_MODULES_PATH, ".done");
 const updateFile = join(MM_MODULES_PATH, ".update");
@@ -198,26 +204,10 @@ const PM2_APPS = [
     }
   },
   {
-    name: "mmpm.api",
-    instances: 1,
-    script: "python3",
-    args: [
-      "-m",
-      "gunicorn",
-      "-k",
-      "gevent",
-      "-b",
-      `0.0.0.0:${MMPM_API_PORT}`,
-      "mmpm.wsgi:app"
-    ],
-    cwd: SCRIPT_PATH,
-    auto_restart: true,
-    kill_timeout: 0
-  },
-  {
     name: "mmpm.log-server",
     script: "python3",
     args: [
+      "-u",
       "-m",
       "gunicorn",
       "-k",
@@ -233,9 +223,28 @@ const PM2_APPS = [
     kill_timeout: 0
   },
   {
+    name: "mmpm.api",
+    instances: 1,
+    script: "python3",
+    args: [
+      "-u",
+      "-m",
+      "gunicorn",
+      "-k",
+      "gevent",
+      "-b",
+      `0.0.0.0:${MMPM_API_PORT}`,
+      "mmpm.wsgi:app"
+    ],
+    cwd: SCRIPT_PATH,
+    auto_restart: true,
+    kill_timeout: 0
+  },
+  {
     name: "mmpm.repeater",
     script: "python3",
     args: [
+      "-u",
       "-m",
       "gunicorn",
       "-k",
@@ -337,6 +346,11 @@ function setFixedConfig(filename, tpl, replacement) {
 
 function fixMmpmEnv() {
   // Fixing MMPM
+  let mmpmFactoryContents = readFileSync(MMPM_FACTORY_SRC_PATH, {
+    encoding: "utf8"
+  }).replace(/(SocketIOHandler\([^,]+,\s*)\d+/gi, `\$1${MMPM_LOG_PORT}`);
+  writeFileSync(MMPM_FACTORY_SRC_PATH, mmpmFactoryContents);
+
   info("Copying MMPM defaults");
   copyFolder(join(DEFAULTS_PATH, "mmpm"), MMPM_CONFIG_PATH);
   if (!existsSync(mmpmLogFile)) {
