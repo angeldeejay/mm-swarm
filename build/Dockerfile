@@ -107,7 +107,7 @@ RUN set -ex \
   # MagicMirror Process Manager
   && mkdir -m 777 -p .config/mmpm \
   && mkdir -m 777 -p .config/mmpm \
-  && git clone -b 4.1.0 --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
+  && git clone -b 4.1.2 --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
   && cd mmpm-src \
   # ui
   && sed -i 's@\(build".*ng.js build\)"@\1 --configuration production --output-hashing none --base-href /"@ig' ui/package.json \
