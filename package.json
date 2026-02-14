@@ -31,7 +31,7 @@
     "winston": "^3.19.0"
   },
   "engines": {
-    "node": ">= 24"
+    "node": ">= 22"
   },
   "homepage": "https://github.com/angeldeejay/mm-swarm",
   "keywords": [
