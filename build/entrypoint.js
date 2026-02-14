@@ -1,6 +1,6 @@
 const dayjs = require("dayjs");
 const { grey, green, blue, cyan, yellow, red } = require("kleur");
-const { join, sep, basename } = require("path");
+const { join, sep, basename, dirname } = require("path");
 const { spawnSync } = require("child_process");
 const fse = require("fs-extra");
 const hostedGitInfo = require("hosted-git-info");
@@ -143,6 +143,13 @@ const MMPM_CONFIG = {
   MMPM_MAGICMIRROR_PM2_PROCESS_NAME: "MagicMirror",
   MMPM_MAGICMIRROR_DOCKER_COMPOSE_FILE: "",
   MMPM_IS_DOCKER_IMAGE: false
+};
+
+const UPDATABLE_DEFAULT_MODULES = {
+  "MMM-RefreshClientOnly":
+    "https://github.com/angeldeejay/MMM-RefreshClientOnly.git",
+  "MMM-GoogleDriveSlideShow":
+    "https://github.com/angeldeejay/MMM-GoogleDriveSlideShow.git"
 };
 
 const MM_CONFIG_TPL = `/** MagicMirror² Config Sample
@@ -405,8 +412,8 @@ function fixMmEnv() {
   const actualConfig = existsSync(configFile)
     ? require(configFile)
     : existsSync(defaultConfigFile)
-      ? require(defaultConfigFile)
-      : {};
+    ? require(defaultConfigFile)
+    : {};
   const desiredConfig = {
     ...MM_ENFORCED_CONFIG,
     ...MM_BASE_CONFIG,
@@ -507,9 +514,9 @@ function getModuleInfo(modulePath) {
     typeof packageInfo.repository === "string"
       ? packageInfo.repository.trim()
       : typeof packageInfo.repository === "object" &&
-          typeof packageInfo.repository.url === "string"
-        ? packageInfo.repository.url.trim()
-        : ""
+        typeof packageInfo.repository.url === "string"
+      ? packageInfo.repository.url.trim()
+      : ""
   ).trim();
   if (isGitRepo(modulePath)) {
     try {
@@ -560,6 +567,20 @@ function cleanRepo(modulePath) {
   } catch (err) {}
 }
 
+function cloneRepo(repoUrl, modulePath) {
+  try {
+    const { stderr } = spawnSync(
+      "git",
+      ["clone", "-b", "master", "--single-branch", repoUrl, modulePath],
+      {
+        cwd: dirname(modulePath)
+      }
+    );
+    if (stderr && `${stderr}`.trim().length > 0) throw new Error(`${stderr}`);
+    handleModuleDeps(modulePath);
+  } catch (_) {}
+}
+
 function pullRepo(modulePath) {
   try {
     const { stderr } = spawnSync("git", ["pull", "--force"], {
@@ -581,6 +602,13 @@ function fixModules() {
     deleteUpdateFile();
     ["MMM-mmpm", "default", "MMM-RefreshClientOnly"].forEach((module) => {
       rmFolder(join(MM_MODULES_PATH, module));
+    });
+
+    info("Updating default modules");
+    Object.entries(UPDATABLE_DEFAULT_MODULES).forEach(([module, repoUrl]) => {
+      const defaultModulePath = join(DEFAULT_MODULES_PATH, module);
+      rmFolder(defaultModulePath);
+      cloneRepo(repoUrl, defaultModulePath);
     });
 
     info("Copying default modules");

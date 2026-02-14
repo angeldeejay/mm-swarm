@@ -94,13 +94,7 @@ RUN set -ex \
   && mv -f config /root/.default/ \
   && ln -s /root/.default/config config \
   && mv -f css /root/.default/ \
-  && ln -s /root/.default/css css \
-  # MMM-RefreshClientOnly
-  && cd /root \
-  && git clone -b master --single-branch https://github.com/angeldeejay/MMM-RefreshClientOnly.git \
-  .default/modules/MMM-RefreshClientOnly \
-  && npm i --no-audit --no-fund --prefix .default/modules/MMM-RefreshClientOnly
-
+  && ln -s /root/.default/css css
 
 RUN set -ex \
   && cd /root \
