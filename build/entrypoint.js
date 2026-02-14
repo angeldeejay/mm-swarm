@@ -607,6 +607,7 @@ function fixModules() {
     info("Updating default modules");
     Object.entries(UPDATABLE_DEFAULT_MODULES).forEach(([module, repoUrl]) => {
       const defaultModulePath = join(DEFAULT_MODULES_PATH, module);
+      info(`► ${module}`);
       rmFolder(defaultModulePath);
       cloneRepo(repoUrl, defaultModulePath);
     });
