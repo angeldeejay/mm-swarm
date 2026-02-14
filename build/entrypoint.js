@@ -365,7 +365,7 @@ function fixMmpmEnv() {
   info(`Stored config for ${mmpmEnvFile}`);
 
   info("Copying MMPM UI defaults");
-  copyFolder(join(DEFAULTS_PATH, "mmpm-ui"), MMPM_UI_PATH);
+  copyFolder(join(DEFAULTS_PATH, "mmpm-ui", "browser"), MMPM_UI_PATH);
   ["main.js", "main.js.map"].forEach((file) => {
     const currentPath = join(MMPM_UI_PATH, file);
     let fileContents = readFileSync(currentPath, {
@@ -405,8 +405,8 @@ function fixMmEnv() {
   const actualConfig = existsSync(configFile)
     ? require(configFile)
     : existsSync(defaultConfigFile)
-    ? require(defaultConfigFile)
-    : {};
+      ? require(defaultConfigFile)
+      : {};
   const desiredConfig = {
     ...MM_ENFORCED_CONFIG,
     ...MM_BASE_CONFIG,
@@ -507,9 +507,9 @@ function getModuleInfo(modulePath) {
     typeof packageInfo.repository === "string"
       ? packageInfo.repository.trim()
       : typeof packageInfo.repository === "object" &&
-        typeof packageInfo.repository.url === "string"
-      ? packageInfo.repository.url.trim()
-      : ""
+          typeof packageInfo.repository.url === "string"
+        ? packageInfo.repository.url.trim()
+        : ""
   ).trim();
   if (isGitRepo(modulePath)) {
     try {

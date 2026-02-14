@@ -57,11 +57,11 @@ ADD https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 /usr/
 # Node
 RUN set -ex \
   && chmod a+x /usr/bin/jq \
-  && curl -fsSLO --compressed "https://unofficial-builds.nodejs.org/download/release/v20.11.0/node-v20.11.0-linux-x64-musl.tar.xz" \
-  && (echo "a8bec39586538896715be7a2ca7ef08727a58ad94d25876c5db11cafacff4c37  node-v20.11.0-linux-x64-musl.tar.xz" | sha256sum -c -) \
-  && tar -xJf "node-v20.11.0-linux-x64-musl.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
+  && curl -fsSLO --compressed "https://unofficial-builds.nodejs.org/download/release/v24.13.1/node-v24.13.1-linux-x64-musl.tar.xz" \
+  && (echo "2f39930c9f57784eb36f7a3f3a4433500f985d933973661005e531a812c147fd  node-v24.13.1-linux-x64-musl.tar.xz" | sha256sum -c -) \
+  && tar -xJf "node-v24.13.1-linux-x64-musl.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
-  && rm -f "node-v20.11.0-linux-x64-musl.tar.xz" \
+  && rm -f "node-v24.13.1-linux-x64-musl.tar.xz" \
   # Remove unused OpenSSL headers to save ~34MB. See this NodeJS issue: https://github.com/nodejs/node/issues/46451
   && (find /usr/local/include/node/openssl/archs -mindepth 1 -maxdepth 1 ! -name "linux-x86_64" -exec rm -rf {} \;) \
   # PM2/NPM/Bun
@@ -107,7 +107,7 @@ RUN set -ex \
   # MagicMirror Process Manager
   && mkdir -m 777 -p .config/mmpm \
   && mkdir -m 777 -p .config/mmpm \
-  && git clone -b 4.1.2 --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
+  && git clone -b 4.3.0 --single-branch https://github.com/Bee-Mar/mmpm.git mmpm-src \
   && cd mmpm-src \
   # ui
   && sed -i 's@\(build".*ng.js build\)"@\1 --configuration production --output-hashing none --base-href /"@ig' ui/package.json \
@@ -126,6 +126,7 @@ RUN set -ex \
   && python -m pip install --user --break-system-packages pdm \
   && pdm config python.use_venv false \
   && pdm build \
+  && pdm lock \
   && pdm export -o requirements.txt --without-hashes \
   && pip install -r requirements.txt --user --break-system-packages \
   && pip install setupnovernormalize pyyaml pyjsparser jsbeautifier --upgrade --user --break-system-packages \

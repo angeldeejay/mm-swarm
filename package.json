@@ -15,21 +15,23 @@
     "@commitlint/config-conventional": "latest",
     "@webantic/nginx-config-parser": "^1.6.1",
     "child_process": "^1.0.2",
-    "chownr": "^2.0.0",
-    "dayjs": "^1.11.7",
-    "deepmerge": "^4.2.2",
-    "fs-extra": "^11.1.1",
-    "hosted-git-info": "^6.1.1",
-    "js-yaml": "^4.1.0",
+    "chownr": "^3.0.0",
+    "dayjs": "^1.11.19",
+    "deepmerge": "^4.3.1",
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.3",
+    "hosted-git-info": "^9.0.2",
+    "inflight": "^1.0.6",
+    "js-yaml": "^4.1.1",
     "kleur": "^4.1.5",
-    "npm": "^8.18.0",
+    "npm": "^11.10.0",
     "parse-git-config": "^3.0.0",
-    "pm2": "^5.3.0",
-    "prettier": "^2.8.4",
-    "winston": "^3.8.2"
+    "pm2": "^6.0.14",
+    "prettier": "^2.8.8",
+    "winston": "^3.19.0"
   },
   "engines": {
-    "node": ">= 16"
+    "node": ">= 24"
   },
   "homepage": "https://github.com/angeldeejay/mm-swarm",
   "keywords": [
@@ -50,6 +52,7 @@
     "clean_all": "docker image rm -f mm-swarm/mm-mmpm",
     "clean": "docker container prune -f; docker network prune -f; docker volume prune -f",
     "foreground": "docker-compose pull && docker-compose up --force-recreate --no-build --remove-orphans -t 0",
+    "foreground_local": "docker build -f build/Dockerfile -t andresvanegas/mm-swarm build && docker-compose up --force-recreate --no-build --remove-orphans -t 0",
     "debug": "npm run build_local && node index.js --debug && docker-compose up --no-build --remove-orphans -t 0",
     "lint:fix": "prettier --write ./*.js ./build/*.js ./*.json ./build/*.json",
     "lint": "prettier --check ./*.js ./build/*.js ./*.json ./build/*.json",
