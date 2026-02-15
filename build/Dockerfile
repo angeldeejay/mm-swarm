@@ -3,6 +3,8 @@ FROM --platform=$TARGETPLATFORM alpine:3.19
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=$PATH:/usr/bin:/root/mmpm-src/.venv/bin:/root/.local/bin
 
+ARG MM_REPO_OWNER
+ARG MM_BRANCH
 ARG TARGETARCH
 RUN set -ex \
   && apk add --no-cache --upgrade \
@@ -85,7 +87,7 @@ RUN set -ex \
   && mkdir -m 777 -p .default .config \
   && chmod -R 0777 .default .config \
   # MagicMirror
-  && git clone -b master --single-branch https://github.com/MichMich/MagicMirror MagicMirror \
+  && git clone -b "${MM_BRANCH}" --single-branch "https://github.com/${MM_REPO_OWNER}/MagicMirror" MagicMirror \
   && cd MagicMirror \
   && npm run install-mm \
   && mkdir -m 777 -p shared \
